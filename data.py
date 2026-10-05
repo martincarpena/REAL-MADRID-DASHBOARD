@@ -16,6 +16,9 @@ BASE = "https://fbref.com/en/squads/53a2f082/{season}/matchlogs/all_comps"
 SCHEDULE_PATH = "/schedule/Real-Madrid-Scores-and-Fixtures-All-Competitions"
 SHOOTING_PATH = "/shooting/Real-Madrid-Match-Logs-All-Competitions"
 
+# Every La Liga match of a season (all 20 teams), used to build the league table.
+LEAGUE_URL = "https://fbref.com/en/comps/12/{season}/schedule/{season}-La-Liga-Scores-and-Fixtures"
+
 # The major version of the Chrome installed on this Mac. If Chrome updates and
 # you see "This version of ChromeDriver only supports Chrome version X",
 # change this number to match your Chrome (chrome://version shows it).
@@ -90,6 +93,12 @@ def _scrape_shooting(season):
     return shooting
 
 
+def _scrape_league(season):
+    html = fetch_html(LEAGUE_URL.format(season=season))
+    tables = pd.read_html(io.StringIO(html))
+    return find_table(tables, ["Wk", "Home", "Score", "Away"])
+
+
 def _cache_path(kind, season):
     return os.path.join(CACHE_DIR, f"{kind}_{season}.csv")
 
@@ -116,6 +125,10 @@ def get_shooting_log(season=CURRENT_SEASON, refresh=False):
     return _load_or_scrape("shooting", season, refresh, _scrape_shooting)
 
 
+def get_league_fixtures(season=CURRENT_SEASON, refresh=False):
+    return _load_or_scrape("league", season, refresh, _scrape_league)
+
+
 def last_downloaded(season):
     """When this season's saved data was last downloaded, as readable text."""
     path = _cache_path("schedule", season)
@@ -131,12 +144,14 @@ if __name__ == "__main__":
     print("Downloading this season's data...")
     schedule = get_match_log(CURRENT_SEASON, refresh=True)
     shooting = get_shooting_log(CURRENT_SEASON, refresh=True)
-    print(f"  schedule: {len(schedule)} rows | shooting: {len(shooting)} rows")
+    league = get_league_fixtures(CURRENT_SEASON, refresh=True)
+    print(f"  schedule: {len(schedule)} rows | shooting: {len(shooting)} rows | league: {len(league)} rows")
 
     print("Checking last season's data (downloads only if missing)...")
     schedule = get_match_log(LAST_SEASON)
     shooting = get_shooting_log(LAST_SEASON)
-    print(f"  schedule: {len(schedule)} rows | shooting: {len(shooting)} rows")
+    league = get_league_fixtures(LAST_SEASON)
+    print(f"  schedule: {len(schedule)} rows | shooting: {len(shooting)} rows | league: {len(league)} rows")
 
     print(f"\nDone. Files are in: {CACHE_DIR}")
     print("Now run: streamlit run app.py")
