@@ -263,12 +263,11 @@ with tab1:
             this_ties = int((this_pos["Level"] > 0).sum())
             last_ties = int((last_pos_view["Level"] > 0).sum())
             st.caption(
-                "Teams are ranked with La Liga's official order: points, then the head-to-head record between "
-                "teams level on points, then goal difference, then goals scored. "
-                f"{TEAM} was level on points with another team in {this_ties} of {len(this_pos)} matchweeks "
-                f"this season and {last_ties} of {len(last_pos_view)} last season, so those positions depend "
-                "on that tiebreaker. When more than two teams are level, the head-to-head record is worked out "
-                "across all of them together, a slight simplification of the official procedure."
+                "Teams are ordered like LaLiga's own table during the season: points, then goal difference, "
+                "then goals scored. Head-to-head decides ties only in the final standings, so it is used only "
+                f"for a final table. {TEAM} was level on points with another team in {this_ties} of "
+                f"{len(this_pos)} matchweeks this season and {last_ties} of {len(last_pos_view)} last season, "
+                "so the ordering rule above decided those positions."
             )
 
             unplayed = unplayed_through(this_fixtures, weeks)
