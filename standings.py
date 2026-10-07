@@ -94,12 +94,31 @@ def last_complete_week(fixtures):
     return week
 
 
+def latest_week_played(fixtures, team):
+    """The latest matchweek in which `team` has played a match (0 if none)."""
+    mine = fixtures[fixtures["Played"] & ((fixtures["Home"] == team) | (fixtures["Away"] == team))]
+    return int(mine["Wk"].max()) if len(mine) else 0
+
+
+def unplayed_through(fixtures, week):
+    """Matches from matchweeks 1..week that have not been played yet, for
+    example postponed ones."""
+    late = fixtures[~fixtures["Played"] & (fixtures["Wk"] <= week)]
+    return late[["Wk", "Date", "Home", "Away"]].reset_index(drop=True)
+
+
 def position_history(fixtures, team):
-    """The team's league position after each fully played matchweek.
+    """The team's league position after each matchweek it has played, from
+    matchweek 1 up to its latest played match.
+
+    Each matchweek's table counts every match played so far in weeks 1..that
+    week, like a real league table: if an earlier match was postponed, the
+    teams involved simply have a game in hand.
+    `Missing` is how many matches from weeks 1..that week are still unplayed.
     `Level` is how many other teams had exactly the same points that week,
     which is when the tiebreaker rules decide the order."""
     rows = []
-    for week in range(1, last_complete_week(fixtures) + 1):
+    for week in range(1, latest_week_played(fixtures, team) + 1):
         table = league_table(fixtures, week)
         me = table[table["Team"] == team].iloc[0]
         rows.append({
@@ -108,5 +127,6 @@ def position_history(fixtures, team):
             "Pts": int(me["Pts"]),
             "GD": int(me["GD"]),
             "Level": int((table["Pts"] == me["Pts"]).sum()) - 1,
+            "Missing": int((~fixtures["Played"] & (fixtures["Wk"] <= week)).sum()),
         })
-    return pd.DataFrame(rows, columns=["Wk", "Position", "Pts", "GD", "Level"])
+    return pd.DataFrame(rows, columns=["Wk", "Position", "Pts", "GD", "Level", "Missing"])
