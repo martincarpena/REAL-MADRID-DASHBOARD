@@ -28,36 +28,60 @@ def clean_fixtures(raw):
     return fixtures[keep].reset_index(drop=True)
 
 
-def league_table(fixtures, week):
-    """The league table after `week` matchweeks: every played match from
-    matchweeks 1..week counts. Teams are ordered by points, then goal
-    difference, then goals scored, then name. (La Liga's official first
-    tiebreaker is head-to-head, so teams level on points can occasionally
-    be in a different order than the official table.)"""
-    played = fixtures[fixtures["Played"] & (fixtures["Wk"] <= week)]
-
-    # Each match counts twice: once from the home team's side, once from the away team's.
-    home = pd.DataFrame({"Team": played["Home"], "GF": played["HomeGoals"], "GA": played["AwayGoals"]})
-    away = pd.DataFrame({"Team": played["Away"], "GF": played["AwayGoals"], "GA": played["HomeGoals"]})
+def _record(matches):
+    """Games played, goals for/against and points for each team, from a set of
+    played matches. Each match counts twice: once from the home team's side,
+    once from the away team's."""
+    home = pd.DataFrame({"Team": matches["Home"], "GF": matches["HomeGoals"], "GA": matches["AwayGoals"]})
+    away = pd.DataFrame({"Team": matches["Away"], "GF": matches["AwayGoals"], "GA": matches["HomeGoals"]})
     games = pd.concat([home, away], ignore_index=True)
     games["Pts"] = (games["GF"] > games["GA"]) * 3 + (games["GF"] == games["GA"]) * 1
     games["P"] = 1
+    return games.groupby("Team")[["P", "GF", "GA", "Pts"]].sum()
 
-    totals = games.groupby("Team")[["P", "GF", "GA", "Pts"]].sum()
+
+def league_table(fixtures, week):
+    """The league table after `week` matchweeks: every played match from
+    matchweeks 1..week counts.
+
+    Teams are ranked with La Liga's official order: points first. Teams level
+    on points are then ordered by their head-to-head record (points, then
+    goal difference in the matches played only between the teams that are
+    level), then overall goal difference, then goals scored, then name.
+    When more than two teams are level, the head-to-head record is worked out
+    across all of them together, which is a slight simplification of the
+    official procedure."""
+    played = fixtures[fixtures["Played"] & (fixtures["Wk"] <= week)]
 
     # Include every team, even one that has not played yet (all zeros).
     teams = sorted(set(fixtures["Home"]) | set(fixtures["Away"]))
-    table = totals.reindex(teams, fill_value=0)
+    table = _record(played).reindex(teams, fill_value=0)
     table.index.name = "Team"
     table = table.reset_index()
     table[["P", "GF", "GA", "Pts"]] = table[["P", "GF", "GA", "Pts"]].astype(int)
-
     table["GD"] = table["GF"] - table["GA"]
+
+    # Head-to-head record, worked out separately for each group of teams that
+    # are level on points. Teams that have not played each other get 0 and 0.
+    h2h_points, h2h_goal_diff = {}, {}
+    for _, level in table.groupby("Pts"):
+        if len(level) < 2:
+            continue
+        group = set(level["Team"])
+        between = played[played["Home"].isin(group) & played["Away"].isin(group)]
+        mini = _record(between)
+        for team in mini.index:
+            h2h_points[team] = int(mini.loc[team, "Pts"])
+            h2h_goal_diff[team] = int(mini.loc[team, "GF"] - mini.loc[team, "GA"])
+    table["H2HPts"] = table["Team"].map(h2h_points).fillna(0).astype(int)
+    table["H2HGD"] = table["Team"].map(h2h_goal_diff).fillna(0).astype(int)
+
     table = table.sort_values(
-        ["Pts", "GD", "GF", "Team"], ascending=[False, False, False, True]
+        ["Pts", "H2HPts", "H2HGD", "GD", "GF", "Team"],
+        ascending=[False, False, False, False, False, True],
     ).reset_index(drop=True)
     table["Position"] = table.index + 1
-    return table
+    return table.drop(columns=["H2HPts", "H2HGD"])
 
 
 def last_complete_week(fixtures):
@@ -73,7 +97,7 @@ def last_complete_week(fixtures):
 def position_history(fixtures, team):
     """The team's league position after each fully played matchweek.
     `Level` is how many other teams had exactly the same points that week,
-    which is where the tiebreaker rule could change the order."""
+    which is when the tiebreaker rules decide the order."""
     rows = []
     for week in range(1, last_complete_week(fixtures) + 1):
         table = league_table(fixtures, week)
