@@ -44,14 +44,18 @@ def league_table(fixtures, week):
     """The league table after `week` matchweeks: every played match from
     matchweeks 1..week counts.
 
-    Teams are ranked with La Liga's official order: points first. Teams level
-    on points are then ordered by their head-to-head record (points, then
-    goal difference in the matches played only between the teams that are
-    level), then overall goal difference, then goals scored, then name.
-    When more than two teams are level, the head-to-head record is worked out
-    across all of them together, which is a slight simplification of the
-    official procedure."""
+    During the season teams are ordered like LaLiga's own table: points, then
+    goal difference, then goals scored, then name.
+
+    La Liga's official first tiebreaker, the head-to-head record between the
+    teams that are level, only decides the FINAL standings. So it is applied
+    only to a final table: every match of the season played, and `week` is
+    the last matchweek. In that case the head-to-head record is points, then
+    goal difference, in the matches played only between the level teams; with
+    more than two teams level it is worked out across all of them together,
+    a slight simplification of the official procedure."""
     played = fixtures[fixtures["Played"] & (fixtures["Wk"] <= week)]
+    is_final = bool(fixtures["Played"].all()) and week >= fixtures["Wk"].max()
 
     # Include every team, even one that has not played yet (all zeros).
     teams = sorted(set(fixtures["Home"]) | set(fixtures["Away"]))
@@ -62,17 +66,18 @@ def league_table(fixtures, week):
     table["GD"] = table["GF"] - table["GA"]
 
     # Head-to-head record, worked out separately for each group of teams that
-    # are level on points. Teams that have not played each other get 0 and 0.
+    # are level on points. It only counts in a final table; otherwise it stays 0.
     h2h_points, h2h_goal_diff = {}, {}
-    for _, level in table.groupby("Pts"):
-        if len(level) < 2:
-            continue
-        group = set(level["Team"])
-        between = played[played["Home"].isin(group) & played["Away"].isin(group)]
-        mini = _record(between)
-        for team in mini.index:
-            h2h_points[team] = int(mini.loc[team, "Pts"])
-            h2h_goal_diff[team] = int(mini.loc[team, "GF"] - mini.loc[team, "GA"])
+    if is_final:
+        for _, level in table.groupby("Pts"):
+            if len(level) < 2:
+                continue
+            group = set(level["Team"])
+            between = played[played["Home"].isin(group) & played["Away"].isin(group)]
+            mini = _record(between)
+            for team in mini.index:
+                h2h_points[team] = int(mini.loc[team, "Pts"])
+                h2h_goal_diff[team] = int(mini.loc[team, "GF"] - mini.loc[team, "GA"])
     table["H2HPts"] = table["Team"].map(h2h_points).fillna(0).astype(int)
     table["H2HGD"] = table["Team"].map(h2h_goal_diff).fillna(0).astype(int)
 
@@ -116,7 +121,8 @@ def position_history(fixtures, team):
     teams involved simply have a game in hand.
     `Missing` is how many matches from weeks 1..that week are still unplayed.
     `Level` is how many other teams had exactly the same points that week,
-    which is when the tiebreaker rules decide the order."""
+    which is when goal difference (and, in a final table, head-to-head)
+    decides the order."""
     rows = []
     for week in range(1, latest_week_played(fixtures, team) + 1):
         table = league_table(fixtures, week)
