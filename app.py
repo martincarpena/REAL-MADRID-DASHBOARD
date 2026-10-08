@@ -21,7 +21,7 @@ from opponents import (
     team_matches,
 )
 
-st.set_page_config(page_title="Real Madrid Dashboard", layout="wide")
+st.set_page_config(page_title="Real Madrid Dashboard", page_icon="⚽", layout="wide")
 
 THIS_COLOR = "#0068c9"  # this season: bold blue
 LAST_COLOR = "#9aa0a6"  # last season: gray
@@ -191,6 +191,19 @@ with st.spinner("Loading data. The very first time, this downloads six pages fro
         st.info("Run `python3 data.py` in the terminal to see the full error and to download the data files.")
         st.stop()
 
+# ---- One-line summary of where the season stands, shown above the tabs ----
+if this_fixtures["Played"].any():
+    summary_week = int(this_fixtures.loc[this_fixtures["Played"], "Wk"].max())
+    summary_table = league_table(this_fixtures, summary_week)
+    summary_row = summary_table[summary_table["Team"] == TEAM].iloc[0]
+    summary_record = meetings_summary(team_matches(this_fixtures, TEAM))
+    st.markdown(
+        f"**{TEAM}** are **{ordinal(int(summary_row['Position']))}** in La Liga after "
+        f"{int(summary_row['P'])} games: **{int(summary_row['Pts'])} points** "
+        f"({summary_record['W']}-{summary_record['D']}-{summary_record['L']}), "
+        f"goal difference {int(summary_row['GD']):+d}."
+    )
+
 tab1, tab2, tab3, tab4 = st.tabs(["Season Dashboard", "Match Stats", "Efficiency Stats", "Opponent Analysis"])
 
 with tab1:
@@ -198,6 +211,8 @@ with tab1:
     last_league = prepare_league_games(last_sched)
 
     st.header("Season Dashboard")
+    st.caption("La Liga results and league position so far this season, set against "
+               "the same point last season.")
     n = len(this_league)
 
     if n == 0:
@@ -322,6 +337,8 @@ with tab1:
 
 with tab2:
     st.header("Match Stats")
+    st.caption("Shots, shots on target and shooting accuracy, match by match, "
+               "this season against last season.")
 
     scope = st.radio(
         "Competitions",
@@ -390,6 +407,8 @@ with tab2:
 
 with tab3:
     st.header("Efficiency Stats")
+    st.caption("How efficiently the team scores and defends: per-game numbers, recent form, "
+               "and the home and away split.")
 
     eff_scope = st.radio(
         "Competitions",
@@ -465,14 +484,18 @@ with tab3:
             )
 
         st.subheader("Home vs Away")
-        left, right = st.columns(2)
-        left.subheader("This season")
-        left.dataframe(venue_split(eff_this), hide_index=True)
-        right.subheader(f"Last season (first {eff_n} matches)")
-        right.dataframe(venue_split(eff_last), hide_index=True)
+        st.caption(f"Last season covers its first {eff_n} matches, the same number played so far this season.")
+        venues = pd.concat([
+            venue_split(eff_this).assign(Season="This season"),
+            venue_split(eff_last).assign(Season="Last season"),
+        ], ignore_index=True)
+        venue_columns = ["Season"] + [col for col in venues.columns if col != "Season"]
+        st.dataframe(venues[venue_columns], hide_index=True)
 
 with tab4:
     st.header("Opponent Analysis")
+    st.caption("Pick any La Liga team to see where it stands, how the two teams have done "
+               "against each other, and how the opponent has been playing lately.")
 
     all_opponents = opponents_of(this_fixtures, TEAM)
 
