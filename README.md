@@ -1,11 +1,15 @@
 # Real Madrid Analytics Dashboard
 
-A Streamlit dashboard that compares Real Madrid's current La Liga season with the same point last season. The data comes from [FBref](https://fbref.com).
+A Streamlit dashboard that compares Real Madrid's current La Liga season with the same point last season, and looks at how the team scores, defends and fares against each opponent. The data comes from [FBref](https://fbref.com).
 
 ## What it shows
 
 - **Season Dashboard:** record, points, goals for and against, and league position, each compared with the same point last season. It also has a cumulative points chart, a league position chart (1st place at the top) and the full league tables.
 - **Match Stats:** shots, shots on target, shot accuracy and conversion compared with last season, a trend chart and a match-by-match breakdown.
+- **Efficiency Stats:** points, goals scored and conceded per game, shots per goal, win percentage, clean sheets and penalties, all compared with last season. It also has a rolling-average form chart (you pick the metric and the number of matches) and a home vs away table.
+- **Opponent Analysis:** pick any La Liga team (it starts on Real Madrid's next match) to see both teams' league positions and recent results, the head-to-head record over last season and this season, the opponent's last five matches, and Real Madrid's results against every team.
+
+A one-line summary of Real Madrid's league position sits above the tabs.
 
 ## Setup (first time)
 
@@ -41,6 +45,8 @@ The very first run downloads six pages from FBref (a few minutes; Chrome windows
 | `app.py` | The dashboard (Streamlit) |
 | `data.py` | Downloads the FBref tables with Chrome and saves them in `data_cache/` |
 | `standings.py` | Cleans the league-wide fixtures and works out league tables and positions |
+| `efficiency.py` | The maths behind the Efficiency Stats tab: per-game numbers, rolling averages, home vs away |
+| `opponents.py` | The maths behind the Opponent Analysis tab: team results, head to head, recent form, next opponent |
 | `check_league_data.py` | Checks the league-wide data against Real Madrid's own page (`python3 check_league_data.py`) |
 | `inspect_page.py` | Prints the tables on any FBref page, to explore a new page before writing code for it |
 | `data_cache/` | The saved downloads (not tracked by Git) |
