@@ -11,6 +11,15 @@ from data import (
 )
 from standings import clean_fixtures, league_table, position_history, unplayed_through
 from efficiency import ROLLING_METRICS, efficiency_summary, rolling_average, venue_split
+from opponents import (
+    form_text,
+    head_to_head,
+    meetings_summary,
+    next_opponent,
+    opponents_of,
+    results_vs_everyone,
+    team_matches,
+)
 
 st.set_page_config(page_title="Real Madrid Dashboard", layout="wide")
 
@@ -182,7 +191,7 @@ with st.spinner("Loading data. The very first time, this downloads six pages fro
         st.info("Run `python3 data.py` in the terminal to see the full error and to download the data files.")
         st.stop()
 
-tab1, tab2, tab3 = st.tabs(["Season Dashboard", "Match Stats", "Efficiency Stats"])
+tab1, tab2, tab3, tab4 = st.tabs(["Season Dashboard", "Match Stats", "Efficiency Stats", "Opponent Analysis"])
 
 with tab1:
     this_league = prepare_league_games(this_sched)
@@ -461,3 +470,66 @@ with tab3:
         left.dataframe(venue_split(eff_this), hide_index=True)
         right.subheader(f"Last season (first {eff_n} matches)")
         right.dataframe(venue_split(eff_last), hide_index=True)
+
+with tab4:
+    st.header("Opponent Analysis")
+
+    all_opponents = opponents_of(this_fixtures, TEAM)
+
+    if not all_opponents:
+        st.info("No fixtures found for this season yet.")
+    else:
+        coming = next_opponent(this_fixtures, TEAM)
+        start = all_opponents.index(coming) if coming in all_opponents else 0
+        opponent = st.selectbox("Choose an opponent", all_opponents, index=start, key="opponent_pick")
+        if coming:
+            st.caption(f"{TEAM}'s next match to be played is against {coming}.")
+
+        # ---- Where the two teams stand in the league right now ----
+        st.subheader("Where the Two Teams Stand")
+        if this_fixtures["Played"].any():
+            current_week = int(this_fixtures.loc[this_fixtures["Played"], "Wk"].max())
+            standing = league_table(this_fixtures, current_week)
+            pair = standing[standing["Team"].isin([TEAM, opponent])][
+                ["Position", "Team", "P", "GF", "GA", "GD", "Pts"]
+            ].copy()
+            pair["Last 5"] = pair["Team"].map(lambda team: form_text(this_fixtures, team))
+            st.dataframe(pair, hide_index=True)
+            st.caption("The league table counts every match played so far this season. "
+                       "Last 5 shows each team's most recent results, oldest first.")
+        else:
+            st.info("No matches have been played yet this season.")
+
+        # ---- Head to head: last season and this season ----
+        st.subheader(f"{TEAM} vs {opponent}: Head to Head")
+        meetings = pd.concat([
+            head_to_head(last_fixtures, TEAM, opponent).assign(Season="Last season"),
+            head_to_head(this_fixtures, TEAM, opponent).assign(Season="This season"),
+        ], ignore_index=True)
+
+        if len(meetings) == 0:
+            st.info(f"{TEAM} and {opponent} have not played each other in the last two seasons of data.")
+        else:
+            summary = meetings_summary(meetings)
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Meetings", summary["Played"])
+            col2.metric("Record (W-D-L)", f"{summary['W']}-{summary['D']}-{summary['L']}")
+            col3.metric(f"{TEAM} goals", summary["GF"])
+            col4.metric(f"{opponent} goals", summary["GA"])
+            st.dataframe(meetings[["Season", "Date", "Venue", "Score", "Result"]], hide_index=True)
+            st.caption(f"Venue and Score are from {TEAM}'s side: its own goals come first.")
+
+        # ---- The opponent's own recent form ----
+        st.subheader(f"{opponent}: Last 5 Matches This Season")
+        recent = team_matches(this_fixtures, opponent).tail(5).iloc[::-1]
+        if len(recent) == 0:
+            st.info(f"{opponent} has not played yet this season.")
+        else:
+            st.dataframe(recent[["Date", "Opponent", "Venue", "Score", "Result"]], hide_index=True)
+            st.caption(f"Most recent first. Venue and Score are from {opponent}'s side: its own goals come first.")
+
+        # ---- All opponents at a glance ----
+        with st.expander(f"{TEAM}'s results against every team"):
+            st.caption(f"H = home, A = away. Scores show {TEAM}'s goals first. "
+                       "A dash means the two teams have not met (a promoted team, or a match not yet played).")
+            st.dataframe(results_vs_everyone(this_fixtures, last_fixtures, TEAM), hide_index=True, height=740)
