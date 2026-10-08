@@ -10,6 +10,7 @@ from data import (
     LAST_SEASON,
 )
 from standings import clean_fixtures, league_table, position_history, unplayed_through
+from efficiency import ROLLING_METRICS, efficiency_summary, rolling_average, venue_split
 
 st.set_page_config(page_title="Real Madrid Dashboard", layout="wide")
 
@@ -132,6 +133,22 @@ def shot_summary(matches):
     return shots, on_target, accuracy, conversion
 
 
+def fmt(value, decimals=2, suffix=""):
+    """A number as text for a metric card, or a dash when there is no number."""
+    return "–" if value is None else f"{value:.{decimals}f}{suffix}"
+
+
+def change(value, last, decimals=2, suffix=""):
+    """This season minus last season as text for a metric card's delta,
+    or None (no arrow shown) when either number is missing."""
+    if value is None or last is None:
+        return None
+    difference = round(value - last, decimals)
+    if difference == 0:
+        return None
+    return f"{difference:.{decimals}f}{suffix}"
+
+
 st.title("Real Madrid Analytics Dashboard")
 
 # ---- Sidebar: when the data was downloaded, and a button to refresh it ----
@@ -165,7 +182,7 @@ with st.spinner("Loading data. The very first time, this downloads six pages fro
         st.info("Run `python3 data.py` in the terminal to see the full error and to download the data files.")
         st.stop()
 
-tab1, tab2 = st.tabs(["Season Dashboard", "Match Stats"])
+tab1, tab2, tab3 = st.tabs(["Season Dashboard", "Match Stats", "Efficiency Stats"])
 
 with tab1:
     this_league = prepare_league_games(this_sched)
@@ -361,3 +378,86 @@ with tab2:
 
         with st.expander(f"Last season's first {n_matches} matches (to check the comparison)"):
             st.dataframe(last_same_point[table_cols], hide_index=True)
+
+with tab3:
+    st.header("Efficiency Stats")
+
+    eff_scope = st.radio(
+        "Competitions",
+        ["All competitions", "La Liga only"],
+        horizontal=True,
+        key="efficiency_scope",  # a key keeps this radio separate from the one in Match Stats
+    )
+    eff_league_only = eff_scope == "La Liga only"
+
+    eff_this = prepare_shooting(this_shoot, eff_league_only)
+    eff_last_all = prepare_shooting(last_shoot, eff_league_only)
+    eff_n = len(eff_this)
+
+    if eff_n == 0:
+        st.info("No matches played yet in this selection.")
+    else:
+        # Last season, cut off at the same number of matches
+        eff_last = eff_last_all[eff_last_all["Game"] <= eff_n]
+
+        now = efficiency_summary(eff_this)
+        before = efficiency_summary(eff_last)
+
+        st.caption(
+            f"After {eff_n} matches: this season vs. the first {eff_n} matches last season. "
+            "For goals conceded, shots per goal and failed-to-score, LOWER is better, so a drop "
+            "shows in green. Shots per goal uses FBref's shooting-table goals (Gls)."
+        )
+
+        col1, col2, col3, col4, col5 = st.columns(5)
+        col1.metric("Points per game", fmt(now["Points per game"]),
+                    delta=change(now["Points per game"], before["Points per game"]))
+        col2.metric("Goals per game", fmt(now["Goals per game"]),
+                    delta=change(now["Goals per game"], before["Goals per game"]))
+        col3.metric("Conceded per game", fmt(now["Conceded per game"]),
+                    delta=change(now["Conceded per game"], before["Conceded per game"]),
+                    delta_color="inverse")
+        col4.metric("Shots per goal", fmt(now["Shots per goal"], 1),
+                    delta=change(now["Shots per goal"], before["Shots per goal"], 1),
+                    delta_color="inverse")
+        col5.metric("Shots on target per goal", fmt(now["Shots on target per goal"], 1),
+                    delta=change(now["Shots on target per goal"], before["Shots on target per goal"], 1),
+                    delta_color="inverse")
+
+        col6, col7, col8, col9 = st.columns(4)
+        col6.metric("Win %", fmt(now["Win %"], 1, "%"),
+                    delta=change(now["Win %"], before["Win %"], 1, " pp"))
+        col7.metric("Clean sheets", now["Clean sheets"],
+                    delta=now["Clean sheets"] - before["Clean sheets"])
+        col8.metric("Failed to score", now["Failed to score"],
+                    delta=now["Failed to score"] - before["Failed to score"],
+                    delta_color="inverse")
+        col9.metric("Penalties scored", f"{now['Penalties scored']} of {now['Penalties taken']}")
+        col9.caption(f"Last season: {before['Penalties scored']} of {before['Penalties taken']}")
+
+        st.subheader("Form Over the Last Few Matches")
+        st.caption("Each point is the average over the previous matches, which smooths out one-off results. "
+                   "The line starts once there are enough matches to fill the window.")
+        form_label = st.selectbox("Metric", list(ROLLING_METRICS), key="efficiency_metric")
+        window = st.slider("Matches in the average", 2, 10, 5, key="efficiency_window")
+
+        if eff_n < window:
+            st.info(f"Only {eff_n} matches played so far, so there is nothing to show for a {window}-match average yet. "
+                    "Pick a smaller window.")
+        else:
+            form = pd.DataFrame({
+                "This season": rolling_average(eff_this, form_label, window),
+                "Last season": rolling_average(eff_last, form_label, window),
+            })
+            st.line_chart(
+                form,
+                y=["This season", "Last season"],
+                color=[THIS_COLOR, LAST_COLOR],
+            )
+
+        st.subheader("Home vs Away")
+        left, right = st.columns(2)
+        left.subheader("This season")
+        left.dataframe(venue_split(eff_this), hide_index=True)
+        right.subheader(f"Last season (first {eff_n} matches)")
+        right.dataframe(venue_split(eff_last), hide_index=True)
