@@ -5,12 +5,20 @@ from data import (
     get_match_log,
     get_shooting_log,
     get_league_fixtures,
+    get_players,
     last_downloaded,
     CURRENT_SEASON,
     LAST_SEASON,
 )
 from standings import clean_fixtures, league_table, position_history, unplayed_through
 from efficiency import ROLLING_METRICS, efficiency_summary, rolling_average, venue_split
+from players import (
+    LEADER_METRICS,
+    clean_players,
+    leaders,
+    squad_table,
+    top_player,
+)
 from opponents import (
     form_text,
     head_to_head,
@@ -78,6 +86,31 @@ def show_position_chart(positions):
         wide = positions.pivot(index="Matchweek", columns="Season", values="Position")
         st.caption("Lower is better (1 = top of the table).")
         st.line_chart(wide, y=["This season", "Last season"], color=[THIS_COLOR, LAST_COLOR])
+
+
+def show_leaders_chart(top, column, label):
+    """Horizontal bars for the top players in one statistic, longest bar at the
+    top. If anything about Altair fails, fall back to a plain bar chart."""
+    data = top.rename(columns={column: "Value"})
+    try:
+        import altair as alt
+
+        chart = (
+            alt.Chart(data)
+            .mark_bar(color=THIS_COLOR)
+            .encode(
+                x=alt.X("Value:Q", title=label, axis=alt.Axis(tickMinStep=1)),
+                y=alt.Y("Player:N", sort="-x", title=None),
+                tooltip=["Player", "Value"],
+            )
+            .properties(height=36 * len(data) + 40)
+        )
+        try:
+            st.altair_chart(chart, width="stretch")
+        except TypeError:  # an older Streamlit without the width option
+            st.altair_chart(chart)
+    except Exception:
+        st.bar_chart(data.set_index("Player")["Value"])
 
 
 def prepare_league_games(schedule):
@@ -166,19 +199,20 @@ with st.sidebar:
     st.caption(f"This season's data last downloaded: {last_downloaded(CURRENT_SEASON) or 'never'}")
     st.caption("Last season is final, so it is downloaded only once.")
     if st.button("Refresh this season's data"):
-        with st.spinner("Downloading from FBref — opens Chrome three times, about a minute..."):
+        with st.spinner("Downloading from FBref — opens Chrome four times, about two minutes..."):
             try:
                 get_match_log(CURRENT_SEASON, refresh=True)
                 get_shooting_log(CURRENT_SEASON, refresh=True)
                 get_league_fixtures(CURRENT_SEASON, refresh=True)
+                get_players(CURRENT_SEASON, refresh=True)
             except Exception as error:
                 st.error(f"Refresh failed: {error}")
             else:
                 st.rerun()
 
-# ---- Load all six tables. They come from saved files on disk; anything ----
+# ---- Load all eight tables. They come from saved files on disk; anything ----
 # ---- missing is downloaded once (slow), then saved for next time.       ----
-with st.spinner("Loading data. The very first time, this downloads six pages from FBref and can take a few minutes..."):
+with st.spinner("Loading data. The very first time, this downloads eight pages from FBref and can take several minutes..."):
     try:
         this_sched = get_match_log(CURRENT_SEASON)
         last_sched = get_match_log(LAST_SEASON)
@@ -186,6 +220,8 @@ with st.spinner("Loading data. The very first time, this downloads six pages fro
         last_shoot = get_shooting_log(LAST_SEASON)
         this_fixtures = clean_fixtures(get_league_fixtures(CURRENT_SEASON))
         last_fixtures = clean_fixtures(get_league_fixtures(LAST_SEASON))
+        this_players = clean_players(get_players(CURRENT_SEASON))
+        last_players = clean_players(get_players(LAST_SEASON))
     except Exception as error:
         st.error(f"Could not load the data: {error}")
         st.info("Run `python3 data.py` in the terminal to see the full error and to download the data files.")
@@ -204,7 +240,9 @@ if this_fixtures["Played"].any():
         f"goal difference {int(summary_row['GD']):+d}."
     )
 
-tab1, tab2, tab3, tab4 = st.tabs(["Season Dashboard", "Match Stats", "Efficiency Stats", "Opponent Analysis"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["Season Dashboard", "Match Stats", "Efficiency Stats", "Opponent Analysis", "Player Stats"]
+)
 
 with tab1:
     this_league = prepare_league_games(this_sched)
@@ -556,3 +594,63 @@ with tab4:
             st.caption(f"H = home, A = away. Scores show {TEAM}'s goals first. "
                        "A dash means the two teams have not met (a promoted team, or a match not yet played).")
             st.dataframe(results_vs_everyone(this_fixtures, last_fixtures, TEAM), hide_index=True, height=740)
+
+with tab5:
+    st.header("Player Stats")
+    st.caption("Who is scoring, creating and playing the minutes. Player numbers cover La Liga only.")
+
+    player_season = st.radio(
+        "Season",
+        ["This season", "Last season (full)"],
+        horizontal=True,
+        key="player_season",
+    )
+    shown = this_players if player_season == "This season" else last_players
+
+    # ---- The best player in four key statistics ----
+    st.subheader("Top Performers")
+    cards = [("Top scorer", "Gls"), ("Most assists", "Ast"), ("Most shots", "Sh"), ("Most minutes", "Min")]
+    for slot, (title, stat) in zip(st.columns(4), cards):
+        best = top_player(shown, stat)
+        if best is None:
+            slot.metric(title, "–")
+            continue
+        slot.metric(title, best[1])
+        slot.caption(best[0])
+        if player_season == "This season":
+            last_best = top_player(last_players, stat)
+            if last_best is not None:
+                slot.caption(f"Last season (full): {last_best[0]}, {last_best[1]}")
+
+    # ---- Leaders chart ----
+    st.subheader("Leaders")
+    leader_label = st.selectbox("Statistic", list(LEADER_METRICS), key="player_metric")
+    leader_column = LEADER_METRICS[leader_label]
+    top = leaders(shown, leader_column, n=10)
+    if len(top) == 0:
+        st.info(f"Nobody has any {leader_label.lower()} yet.")
+    else:
+        show_leaders_chart(top, leader_column, leader_label)
+
+    # ---- The whole squad ----
+    st.subheader("Full Squad")
+    minutes_options = {"All players": 0, "90+ minutes": 90, "450+ minutes": 450, "900+ minutes": 900}
+    minutes_label = st.selectbox("Show", list(minutes_options), key="player_minutes")
+
+    if player_season == "This season":
+        squad = squad_table(this_players, last_players)
+        squad_columns = ["Player", "Pos", "Nation", "Age", "MP", "Starts", "Min", "Gls", "Ast", "G+A",
+                         "Gls/90", "Ast/90", "Sh", "SoT", "SoT%", "CrdY", "CrdR",
+                         "Gls last season", "Ast last season"]
+    else:
+        squad = last_players
+        squad_columns = ["Player", "Pos", "Nation", "Age", "MP", "Starts", "Min", "Gls", "Ast", "G+A",
+                         "Gls/90", "Ast/90", "Sh", "SoT", "SoT%", "CrdY", "CrdR"]
+
+    squad = squad[squad["Min"] >= minutes_options[minutes_label]].sort_values("Min", ascending=False)
+    if len(squad) == 0:
+        st.info("No players match this filter yet.")
+    else:
+        st.dataframe(squad[squad_columns], hide_index=True)
+        st.caption("Click a column heading to sort by it. Per-90 numbers are only reliable for players "
+                   "with a lot of minutes, so use the filter above. Last season's columns are full-season totals.")
