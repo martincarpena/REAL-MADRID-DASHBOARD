@@ -1,6 +1,6 @@
 # Real Madrid Analytics Dashboard
 
-A Streamlit dashboard that compares Real Madrid's current La Liga season with the same point last season, and looks at how the team scores, defends and fares against each opponent. The data comes from [FBref](https://fbref.com).
+A Streamlit dashboard that compares Real Madrid's current La Liga season with the same point last season, and looks at how the team scores, defends and fares against each opponent, and which players are doing it. The data comes from [FBref](https://fbref.com).
 
 ## What it shows
 
@@ -8,6 +8,7 @@ A Streamlit dashboard that compares Real Madrid's current La Liga season with th
 - **Match Stats:** shots, shots on target, shot accuracy and conversion compared with last season, a trend chart and a match-by-match breakdown.
 - **Efficiency Stats:** points, goals scored and conceded per game, shots per goal, win percentage, clean sheets and penalties, all compared with last season. It also has a rolling-average form chart (you pick the metric and the number of matches) and a home vs away table.
 - **Opponent Analysis:** pick any La Liga team (it starts on Real Madrid's next match) to see both teams' league positions and recent results, the head-to-head record over last season and this season, the opponent's last five matches, and Real Madrid's results against every team.
+- **Player Stats:** top scorer, most assists, most shots and most minutes (each next to last season's leader), a leaders bar chart for any statistic, and a full squad table with a minutes filter and last season's totals. You can switch the whole tab between this season and last season.
 
 A one-line summary of Real Madrid's league position sits above the tabs.
 
@@ -30,11 +31,11 @@ source venv/bin/activate
 streamlit run app.py
 ```
 
-The very first run downloads six pages from FBref (a few minutes; Chrome windows open and close by themselves, so leave them alone) and saves them in `data_cache/`. After that the dashboard opens instantly. Use Chrome to view it: in testing it rendered blank in Safari.
+The very first run downloads eight pages from FBref (several minutes; Chrome windows open and close by themselves, so leave them alone) and saves them in `data_cache/`. After that the dashboard opens instantly. Use Chrome to view it: in testing it rendered blank in Safari.
 
 ## Updating the data
 
-- Click **Refresh this season's data** in the sidebar (opens Chrome three times, about a minute), or run `python3 data.py` in the terminal.
+- Click **Refresh this season's data** in the sidebar (opens Chrome four times, about two minutes), or run `python3 data.py` in the terminal.
 - Last season is final, so it is downloaded only once.
 - Be gentle with FBref. It blocks scripts that download too quickly, so `data.py` waits at least 6 seconds between pages. If you get blocked, wait a while before trying again.
 
@@ -47,6 +48,7 @@ The very first run downloads six pages from FBref (a few minutes; Chrome windows
 | `standings.py` | Cleans the league-wide fixtures and works out league tables and positions |
 | `efficiency.py` | The maths behind the Efficiency Stats tab: per-game numbers, rolling averages, home vs away |
 | `opponents.py` | The maths behind the Opponent Analysis tab: team results, head to head, recent form, next opponent |
+| `players.py` | The maths behind the Player Stats tab: cleaning the squad table, leaderboards, this season vs last season |
 | `check_league_data.py` | Checks the league-wide data against Real Madrid's own page (`python3 check_league_data.py`) |
 | `inspect_page.py` | Prints the tables on any FBref page, to explore a new page before writing code for it |
 | `data_cache/` | The saved downloads (not tracked by Git) |
@@ -58,11 +60,19 @@ The very first run downloads six pages from FBref (a few minutes; Chrome windows
 - Head-to-head decides ties only in the final standings, so it is used only for a final table (the whole season played).
 - A postponed match shows up as a game in hand for the two teams involved.
 
+## About the player numbers
+
+- Player numbers cover La Liga only, so they can differ from the all-competitions numbers on the Efficiency Stats tab.
+- Last season's columns are full-season totals, not totals at the same point of the season.
+- Per-90 numbers are unreliable for players with few minutes, which is why the squad table has a minutes filter.
+- A player's goals in the shooting table can be lower than the real total, because own goals are counted differently.
+
 ## Troubleshooting
 
 - **`ModuleNotFoundError` for a package you installed:** the virtual environment isn't active. The terminal prompt should start with `(venv)`. If it doesn't, run `source venv/bin/activate`.
 - **"This version of ChromeDriver only supports Chrome version X":** Chrome updated itself. Change `CHROME_MAJOR_VERSION` at the top of `data.py` to your Chrome's major version (`chrome://version` shows it).
 - **"No tables appeared on the page... 'Just a moment...'":** FBref's bot check didn't clear, or it is refusing requests right now. Wait a while and try again.
+- **A Chrome window shows "Verify you are human":** click the checkbox in that window. The download continues by itself once the check clears.
 
 ## Data
 
