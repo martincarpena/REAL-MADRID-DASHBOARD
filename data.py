@@ -19,6 +19,9 @@ SHOOTING_PATH = "/shooting/Real-Madrid-Match-Logs-All-Competitions"
 # Every La Liga match of a season (all 20 teams), used to build the league table.
 LEAGUE_URL = "https://fbref.com/en/comps/12/{season}/schedule/{season}-La-Liga-Scores-and-Fixtures"
 
+# Real Madrid's squad page: one row per player (minutes, goals, assists, shooting...).
+SQUAD_URL = "https://fbref.com/en/squads/53a2f082/{season}/Real-Madrid-Stats"
+
 # The major version of the Chrome installed on this Mac. If Chrome updates and
 # you see "This version of ChromeDriver only supports Chrome version X",
 # change this number to match your Chrome (chrome://version shows it).
@@ -99,6 +102,36 @@ def _scrape_league(season):
     return find_table(tables, ["Wk", "Home", "Score", "Away"])
 
 
+def _flatten_player_column(col):
+    """Player tables have a two-level header. A few names appear twice, once as
+    a season total and once per 90 minutes (both are called 'Gls', for example),
+    so the per-90 ones get '/90' added to keep every column name unique."""
+    if not isinstance(col, tuple):
+        return str(col)
+    group, name = col[0], col[-1]
+    return f"{name}/90" if group == "Per 90 Minutes" else name
+
+
+def _scrape_players(season):
+    """One download of the squad page gives two player tables: the standard one
+    (minutes, goals, assists, cards) and the shooting one. They are joined on the
+    player's name, so each player is one row."""
+    html = fetch_html(SQUAD_URL.format(season=season))
+    tables = pd.read_html(io.StringIO(html))
+
+    standard = find_table(tables, ["Player", "Starts", "Min", "Ast", "G+A"]).copy()
+    standard.columns = [_flatten_player_column(col) for col in standard.columns]
+    standard = standard.drop(columns=["Matches"])
+
+    shooting = find_table(tables, ["Player", "Sh", "SoT", "SoT%"]).copy()
+    shooting.columns = [_flatten_player_column(col) for col in shooting.columns]
+    shooting = shooting[["Player", "Sh", "SoT", "SoT%", "Sh/90", "SoT/90", "G/Sh", "G/SoT"]]
+
+    # A left join keeps every player from the standard table, including those
+    # who have not taken a shot (their shooting columns are simply blank).
+    return standard.merge(shooting, on="Player", how="left")
+
+
 def _cache_path(kind, season):
     return os.path.join(CACHE_DIR, f"{kind}_{season}.csv")
 
@@ -129,6 +162,10 @@ def get_league_fixtures(season=CURRENT_SEASON, refresh=False):
     return _load_or_scrape("league", season, refresh, _scrape_league)
 
 
+def get_players(season=CURRENT_SEASON, refresh=False):
+    return _load_or_scrape("players", season, refresh, _scrape_players)
+
+
 def last_downloaded(season):
     """When this season's saved data was last downloaded, as readable text."""
     path = _cache_path("schedule", season)
@@ -145,13 +182,15 @@ if __name__ == "__main__":
     schedule = get_match_log(CURRENT_SEASON, refresh=True)
     shooting = get_shooting_log(CURRENT_SEASON, refresh=True)
     league = get_league_fixtures(CURRENT_SEASON, refresh=True)
-    print(f"  schedule: {len(schedule)} rows | shooting: {len(shooting)} rows | league: {len(league)} rows")
+    players = get_players(CURRENT_SEASON, refresh=True)
+    print(f"  schedule: {len(schedule)} rows | shooting: {len(shooting)} rows | league: {len(league)} rows | players: {len(players)} rows")
 
     print("Checking last season's data (downloads only if missing)...")
     schedule = get_match_log(LAST_SEASON)
     shooting = get_shooting_log(LAST_SEASON)
     league = get_league_fixtures(LAST_SEASON)
-    print(f"  schedule: {len(schedule)} rows | shooting: {len(shooting)} rows | league: {len(league)} rows")
+    players = get_players(LAST_SEASON)
+    print(f"  schedule: {len(schedule)} rows | shooting: {len(shooting)} rows | league: {len(league)} rows | players: {len(players)} rows")
 
     print(f"\nDone. Files are in: {CACHE_DIR}")
     print("Now run: streamlit run app.py")
