@@ -121,6 +121,48 @@ def show_leaders_chart(top, column, label):
         st.bar_chart(data.set_index("Player")["Value"])
 
 
+def show_possession_chart(trend):
+    """Line chart of average possession. st.line_chart always starts its axis at
+    0, which flattens lines that stay between 40 and 65, so this uses Altair
+    with an axis that fits the data. If anything about it fails, fall back to a
+    plain line chart."""
+    try:
+        import altair as alt
+
+        # One row per season and match, which is the shape Altair wants
+        long = (
+            trend.rename_axis("Match")
+            .reset_index()
+            .melt(id_vars="Match", var_name="Season", value_name="Possession")
+            .dropna()
+        )
+        chart = (
+            alt.Chart(long)
+            .mark_line(point=True)
+            .encode(
+                x=alt.X("Match:Q", axis=alt.Axis(tickMinStep=1)),
+                y=alt.Y(
+                    "Possession:Q",
+                    title="Average possession (%)",
+                    scale=alt.Scale(zero=False),  # let the axis fit the data instead of starting at 0
+                ),
+                color=alt.Color(
+                    "Season:N",
+                    scale=alt.Scale(domain=["This season", "Last season"], range=[THIS_COLOR, LAST_COLOR]),
+                    legend=alt.Legend(title=None),
+                ),
+                tooltip=["Season", "Match", alt.Tooltip("Possession:Q", format=".1f")],
+            )
+            .properties(height=320)
+        )
+        try:
+            st.altair_chart(chart, width="stretch")
+        except TypeError:  # an older Streamlit without the width option
+            st.altair_chart(chart)
+    except Exception:
+        st.line_chart(trend, y=["This season", "Last season"], color=[THIS_COLOR, LAST_COLOR])
+
+
 def prepare_league_games(schedule):
     """Played La Liga games only, in date order, numbered Game 1, 2, 3..."""
     played = schedule[schedule["Result"].notna()].copy()
@@ -721,11 +763,7 @@ with tab6:
                 "This season": rolling_possession(tac_this, tactics_window),
                 "Last season": rolling_possession(tac_last, tactics_window),
             })
-            st.line_chart(
-                poss_trend,
-                y=["This season", "Last season"],
-                color=[THIS_COLOR, LAST_COLOR],
-            )
+            show_possession_chart(poss_trend)
 
         # ---- Possession and results, and formations ----
         tactics_compare = st.radio(
@@ -744,28 +782,43 @@ with tab6:
             possession_bands(tac_other).assign(Season="Last season"),
         ], ignore_index=True)
         band_columns = ["Season"] + [col for col in bands.columns if col != "Season"]
-        st.dataframe(bands[band_columns], hide_index=True)
+        # Show points per game with two decimals (2.00, not 2)
+        st.dataframe(
+            bands[band_columns],
+            hide_index=True,
+            column_config={"Points per game": st.column_config.NumberColumn("Points per game", format="%.2f")},
+        )
 
+        st.subheader("Average Possession by Result")
         left, right = st.columns(2)
-        left.subheader("Average possession by result: this season")
+        left.caption("This season")
         left.dataframe(possession_by_result(tac_this), hide_index=True)
-        right.subheader("Average possession by result: last season")
+        right.caption("Last season")
         right.dataframe(possession_by_result(tac_other), hide_index=True)
+
+        # The two formation tables sit side by side, so they show fewer columns
+        # (no goals, no total points) to fit in half the page width.
+        formation_columns = ["Formation", "Games", "W", "D", "L", "Points per game"]
+        formation_config = {"Points per game": st.column_config.NumberColumn("Pts/game", format="%.2f")}
 
         st.subheader("Real Madrid's Formations")
         left, right = st.columns(2)
-        left.subheader("This season")
-        left.dataframe(formation_record(tac_this, "Formation"), hide_index=True)
-        right.subheader("Last season")
-        right.dataframe(formation_record(tac_other, "Formation"), hide_index=True)
+        left.caption("This season")
+        left.dataframe(formation_record(tac_this, "Formation")[formation_columns],
+                       hide_index=True, column_config=formation_config)
+        right.caption("Last season")
+        right.dataframe(formation_record(tac_other, "Formation")[formation_columns],
+                        hide_index=True, column_config=formation_config)
 
         st.subheader("Against Each Opponent Formation")
         st.caption("The record of Real Madrid against teams who lined up this way.")
         left, right = st.columns(2)
-        left.subheader("This season")
-        left.dataframe(formation_record(tac_this, "Opp Formation"), hide_index=True)
-        right.subheader("Last season")
-        right.dataframe(formation_record(tac_other, "Opp Formation"), hide_index=True)
+        left.caption("This season")
+        left.dataframe(formation_record(tac_this, "Opp Formation")[formation_columns],
+                       hide_index=True, column_config=formation_config)
+        right.caption("Last season")
+        right.dataframe(formation_record(tac_other, "Opp Formation")[formation_columns],
+                        hide_index=True, column_config=formation_config)
 
         with st.expander("See the matches behind these numbers"):
             tactics_columns = ["Game", "Date", "Comp", "Opponent", "Venue", "Result",
