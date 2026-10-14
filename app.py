@@ -19,6 +19,14 @@ from players import (
     squad_table,
     top_player,
 )
+from tactics import (
+    clean_schedule,
+    formation_record,
+    possession_bands,
+    possession_by_result,
+    possession_summary,
+    rolling_possession,
+)
 from opponents import (
     form_text,
     head_to_head,
@@ -240,8 +248,8 @@ if this_fixtures["Played"].any():
         f"goal difference {int(summary_row['GD']):+d}."
     )
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["Season Dashboard", "Match Stats", "Efficiency Stats", "Opponent Analysis", "Player Stats"]
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+    ["Season Dashboard", "Match Stats", "Efficiency Stats", "Opponent Analysis", "Player Stats", "Tactics"]
 )
 
 with tab1:
@@ -654,3 +662,112 @@ with tab5:
         st.dataframe(squad[squad_columns], hide_index=True)
         st.caption("Click a column heading to sort by it. Per-90 numbers are only reliable for players "
                    "with a lot of minutes, so use the filter above. Last season's columns are full-season totals.")
+
+
+with tab6:
+    st.header("Tactics")
+    st.caption("How much of the ball Real Madrid have, how possession relates to results, "
+               "and how the team does with each formation.")
+
+    tactics_scope = st.radio(
+        "Competitions",
+        ["All competitions", "La Liga only"],
+        horizontal=True,
+        key="tactics_scope",
+    )
+    tactics_league_only = tactics_scope == "La Liga only"
+
+    tac_this = clean_schedule(this_sched, tactics_league_only)
+    tac_last_all = clean_schedule(last_sched, tactics_league_only)
+    tac_this["Opponent"] = tac_this["Opponent"].apply(clean_opponent)
+    tac_last_all["Opponent"] = tac_last_all["Opponent"].apply(clean_opponent)
+    tac_n = len(tac_this)
+
+    if tac_n == 0:
+        st.info("No matches played yet in this selection.")
+    else:
+        # Last season, cut off at the same number of matches
+        tac_last = tac_last_all[tac_last_all["Game"] <= tac_n]
+
+        poss_now = possession_summary(tac_this)
+        poss_before = possession_summary(tac_last)
+
+        st.caption(
+            f"After {tac_n} matches: this season vs. the first {tac_n} matches last season. "
+            "Possession is the share of the ball Real Madrid had, from FBref."
+        )
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Average possession", fmt(poss_now["Average"], 1, "%"),
+                    delta=change(poss_now["Average"], poss_before["Average"], 1, " pp"))
+        col2.metric("Most possession in a match", fmt(poss_now["Highest"], 0, "%"),
+                    delta=change(poss_now["Highest"], poss_before["Highest"], 0, " pp"))
+        col3.metric("Least possession in a match", fmt(poss_now["Lowest"], 0, "%"),
+                    delta=change(poss_now["Lowest"], poss_before["Lowest"], 0, " pp"))
+        col4.metric("Matches with most of the ball", fmt(poss_now["Most of the ball"], 0),
+                    delta=change(poss_now["Most of the ball"], poss_before["Most of the ball"], 0))
+
+        # ---- Possession over time ----
+        st.subheader("Possession Over the Last Few Matches")
+        st.caption("Each point is the average over the previous matches, which smooths out one-off games. "
+                   "The line starts once there are enough matches to fill the window.")
+        tactics_window = st.slider("Matches in the average", 2, 10, 5, key="tactics_window")
+
+        if tac_n < tactics_window:
+            st.info(f"Only {tac_n} matches played so far, so there is nothing to show for a "
+                    f"{tactics_window}-match average yet. Pick a smaller window.")
+        else:
+            poss_trend = pd.DataFrame({
+                "This season": rolling_possession(tac_this, tactics_window),
+                "Last season": rolling_possession(tac_last, tactics_window),
+            })
+            st.line_chart(
+                poss_trend,
+                y=["This season", "Last season"],
+                color=[THIS_COLOR, LAST_COLOR],
+            )
+
+        # ---- Possession and results, and formations ----
+        tactics_compare = st.radio(
+            "Compare this season with",
+            ["Same point last season", "Full last season"],
+            horizontal=True,
+            key="tactics_compare",
+        )
+        tac_other = tac_last if tactics_compare == "Same point last season" else tac_last_all
+        st.caption("A full season has many more matches than the first few, so its percentages are steadier. "
+                   "With only a handful of matches, one result can swing a whole row.")
+
+        st.subheader("Possession and Results")
+        bands = pd.concat([
+            possession_bands(tac_this).assign(Season="This season"),
+            possession_bands(tac_other).assign(Season="Last season"),
+        ], ignore_index=True)
+        band_columns = ["Season"] + [col for col in bands.columns if col != "Season"]
+        st.dataframe(bands[band_columns], hide_index=True)
+
+        left, right = st.columns(2)
+        left.subheader("Average possession by result: this season")
+        left.dataframe(possession_by_result(tac_this), hide_index=True)
+        right.subheader("Average possession by result: last season")
+        right.dataframe(possession_by_result(tac_other), hide_index=True)
+
+        st.subheader("Real Madrid's Formations")
+        left, right = st.columns(2)
+        left.subheader("This season")
+        left.dataframe(formation_record(tac_this, "Formation"), hide_index=True)
+        right.subheader("Last season")
+        right.dataframe(formation_record(tac_other, "Formation"), hide_index=True)
+
+        st.subheader("Against Each Opponent Formation")
+        st.caption("The record of Real Madrid against teams who lined up this way.")
+        left, right = st.columns(2)
+        left.subheader("This season")
+        left.dataframe(formation_record(tac_this, "Opp Formation"), hide_index=True)
+        right.subheader("Last season")
+        right.dataframe(formation_record(tac_other, "Opp Formation"), hide_index=True)
+
+        with st.expander("See the matches behind these numbers"):
+            tactics_columns = ["Game", "Date", "Comp", "Opponent", "Venue", "Result",
+                               "GF", "GA", "Poss", "Formation", "Opp Formation"]
+            st.dataframe(tac_this[tactics_columns], hide_index=True)
