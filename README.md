@@ -1,6 +1,6 @@
 # Real Madrid Analytics Dashboard
 
-A Streamlit dashboard that compares Real Madrid's current La Liga season with the same point last season, and looks at how the team scores, defends and fares against each opponent, and which players are doing it. The data comes from [FBref](https://fbref.com).
+A Streamlit dashboard that compares Real Madrid's current La Liga season with the same point last season, and looks at how the team scores, defends and fares against each opponent, which players are doing it, and how the team uses the ball and its formations. The data comes from [FBref](https://fbref.com).
 
 ## What it shows
 
@@ -9,6 +9,7 @@ A Streamlit dashboard that compares Real Madrid's current La Liga season with th
 - **Efficiency Stats:** points, goals scored and conceded per game, shots per goal, win percentage, clean sheets and penalties, all compared with last season. It also has a rolling-average form chart (you pick the metric and the number of matches) and a home vs away table.
 - **Opponent Analysis:** pick any La Liga team (it starts on Real Madrid's next match) to see both teams' league positions and recent results, the head-to-head record over last season and this season, the opponent's last five matches, and Real Madrid's results against every team.
 - **Player Stats:** top scorer, most assists, most shots and most minutes (each next to last season's leader), a leaders bar chart for any statistic, and a full squad table with a minutes filter and last season's totals. You can switch the whole tab between this season and last season.
+- **Tactics:** possession (average, highest, lowest) compared with last season, a rolling possession chart, the record in matches with little, medium and a lot of possession, and the record with each of Real Madrid's formations and against each opponent formation.
 
 A one-line summary of Real Madrid's league position sits above the tabs.
 
@@ -49,6 +50,7 @@ The very first run downloads eight pages from FBref (several minutes; Chrome win
 | `efficiency.py` | The maths behind the Efficiency Stats tab: per-game numbers, rolling averages, home vs away |
 | `opponents.py` | The maths behind the Opponent Analysis tab: team results, head to head, recent form, next opponent |
 | `players.py` | The maths behind the Player Stats tab: cleaning the squad table, leaderboards, this season vs last season |
+| `tactics.py` | The maths behind the Tactics tab: possession summaries, possession bands, records by formation |
 | `check_league_data.py` | Checks the league-wide data against Real Madrid's own page (`python3 check_league_data.py`) |
 | `inspect_page.py` | Prints the tables on any FBref page, to explore a new page before writing code for it |
 | `data_cache/` | The saved downloads (not tracked by Git) |
