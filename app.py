@@ -19,6 +19,7 @@ from players import (
     squad_table,
     top_player,
 )
+from styles import CSS, hero_html
 from tactics import (
     clean_schedule,
     formation_record,
@@ -39,7 +40,7 @@ from opponents import (
 
 st.set_page_config(page_title="Real Madrid Dashboard", page_icon="⚽", layout="wide")
 
-THIS_COLOR = "#0068c9"  # this season: bold blue
+THIS_COLOR = "#00529F"  # this season: Real Madrid blue (the same blue as the theme)
 LAST_COLOR = "#9aa0a6"  # last season: gray
 TEAM = "Real Madrid"    # must match the team's name in FBref's league-wide table
 
@@ -241,7 +242,15 @@ def change(value, last, decimals=2, suffix=""):
     return f"{difference:.{decimals}f}{suffix}"
 
 
-st.title("Real Madrid Analytics Dashboard")
+# ---- Styling and the banner at the top (the CSS lives in styles.py) ----
+st.markdown(CSS, unsafe_allow_html=True)
+st.markdown(
+    hero_html(
+        "Real Madrid Analytics Dashboard",
+        f"La Liga {CURRENT_SEASON} compared with {LAST_SEASON} at the same point of the season",
+    ),
+    unsafe_allow_html=True,
+)
 
 # ---- Sidebar: when the data was downloaded, and a button to refresh it ----
 with st.sidebar:
