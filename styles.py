@@ -8,6 +8,13 @@ the top of the page.
 There is no Streamlit in this file on purpose. It only builds text.
 """
 
+import base64
+import os
+
+# The crest image sits next to this file. If it is missing, the banner simply
+# shows without it.
+LOGO_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo.svg")
+
 # CSS "variables": the colours are defined once here, and every rule below
 # uses them with var(--name). To change a colour everywhere, change it once.
 CSS = """
@@ -36,12 +43,24 @@ h1, h2, h3 {
 
 /* The banner at the top: a gradient from navy to blue with a gold edge */
 .hero {
+    display: flex;
+    align-items: center;
+    gap: 1.75rem;
     background: linear-gradient(120deg, var(--navy) 0%, var(--blue) 70%, #1B74C9 100%);
     border-radius: 16px;
     border-bottom: 5px solid var(--gold);
     padding: 2rem 2.5rem;
     margin-bottom: 1rem;
     box-shadow: 0 8px 24px rgba(11, 31, 58, 0.25);
+}
+/* The crest sits on a white tile so it stays readable on the dark gradient */
+.hero img {
+    height: 110px;
+    width: auto;
+    background: rgba(255, 255, 255, 0.96);
+    border-radius: 14px;
+    padding: 8px 12px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 .hero h1 {
     color: #FFFFFF !important;
@@ -63,6 +82,7 @@ h1, h2, h3 {
     border-left: 5px solid var(--gold);
     border-radius: 12px;
     padding: 0.9rem 1.1rem;
+    min-height: 8rem;
     box-shadow: 0 2px 10px rgba(11, 31, 58, 0.08);
 }
 [data-testid="stMetricValue"] {
@@ -112,8 +132,20 @@ button[data-baseweb="tab"] {
 """
 
 
-def hero_html(title, subtitle):
+def logo_data_uri():
+    """The crest as a "data URI": the whole image written out as text, so it
+    can sit inside the banner's HTML. Returns None if the file is missing."""
+    try:
+        with open(LOGO_PATH, "rb") as file:
+            encoded = base64.b64encode(file.read()).decode("ascii")
+    except OSError:
+        return None
+    return f"data:image/svg+xml;base64,{encoded}"
+
+
+def hero_html(title, subtitle, logo_uri=None):
     """The banner at the top of the page, as one block of HTML. It is written
     on a single line with no blank lines in it, because a blank line would end
     the HTML block and the rest would show up as plain text."""
-    return f'<div class="hero"><h1>{title}</h1><p>{subtitle}</p></div>'
+    crest = f'<img src="{logo_uri}" alt="Crest">' if logo_uri else ""
+    return f'<div class="hero">{crest}<div><h1>{title}</h1><p>{subtitle}</p></div></div>'

@@ -19,7 +19,7 @@ from players import (
     squad_table,
     top_player,
 )
-from styles import CSS, hero_html
+from styles import CSS, hero_html, logo_data_uri
 from tactics import (
     clean_schedule,
     formation_record,
@@ -248,6 +248,7 @@ st.markdown(
     hero_html(
         "Real Madrid Analytics Dashboard",
         f"La Liga {CURRENT_SEASON} compared with {LAST_SEASON} at the same point of the season",
+        logo_data_uri(),
     ),
     unsafe_allow_html=True,
 )
