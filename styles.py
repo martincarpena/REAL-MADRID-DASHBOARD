@@ -138,6 +138,26 @@ button[data-baseweb="tab"] {
     height: 3px;
 }
 
+/* Section headings: the big title at the top of each tab gets a short gold
+   bar underneath, and the smaller subheadings are navy */
+[data-testid="stHeading"] h2 {
+    color: var(--navy);
+    font-weight: 800;
+}
+[data-testid="stHeading"] h2::after {
+    content: "";
+    display: block;
+    width: 56px;
+    height: 4px;
+    margin-top: 0.4rem;
+    border-radius: 2px;
+    background: var(--gold);
+}
+[data-testid="stHeading"] h3 {
+    color: var(--navy);
+    font-weight: 700;
+}
+
 /* The sidebar fades from cream to white */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, var(--cream) 0%, #FFFFFF 100%);
