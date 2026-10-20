@@ -1,0 +1,12 @@
+# Colours and font for the whole dashboard. Streamlit reads this file when it
+# starts, so restart `streamlit run app.py` after changing it.
+[theme]
+base = "light"
+# Real Madrid blue: sliders, the selected tab, radio buttons
+primaryColor = "#00529F"
+backgroundColor = "#FFFFFF"
+# A warm off-white for the sidebar and panels
+secondaryBackgroundColor = "#F3F0E8"
+# Deep navy instead of plain black
+textColor = "#0B1F3A"
+font = "sans serif"

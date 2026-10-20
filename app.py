@@ -19,6 +19,7 @@ from players import (
     squad_table,
     top_player,
 )
+from styles import CSS, hero_html, logo_data_uri, summary_html
 from tactics import (
     clean_schedule,
     formation_record,
@@ -39,7 +40,7 @@ from opponents import (
 
 st.set_page_config(page_title="Real Madrid Dashboard", page_icon="⚽", layout="wide")
 
-THIS_COLOR = "#0068c9"  # this season: bold blue
+THIS_COLOR = "#00529F"  # this season: Real Madrid blue (the same blue as the theme)
 LAST_COLOR = "#9aa0a6"  # last season: gray
 TEAM = "Real Madrid"    # must match the team's name in FBref's league-wide table
 
@@ -241,7 +242,16 @@ def change(value, last, decimals=2, suffix=""):
     return f"{difference:.{decimals}f}{suffix}"
 
 
-st.title("Real Madrid Analytics Dashboard")
+# ---- Styling and the banner at the top (the CSS lives in styles.py) ----
+st.markdown(CSS, unsafe_allow_html=True)
+st.markdown(
+    hero_html(
+        "Real Madrid Analytics Dashboard",
+        f"La Liga {CURRENT_SEASON} compared with {LAST_SEASON} at the same point of the season",
+        logo_data_uri(),
+    ),
+    unsafe_allow_html=True,
+)
 
 # ---- Sidebar: when the data was downloaded, and a button to refresh it ----
 with st.sidebar:
@@ -284,10 +294,15 @@ if this_fixtures["Played"].any():
     summary_row = summary_table[summary_table["Team"] == TEAM].iloc[0]
     summary_record = meetings_summary(team_matches(this_fixtures, TEAM))
     st.markdown(
-        f"**{TEAM}** are **{ordinal(int(summary_row['Position']))}** in La Liga after "
-        f"{int(summary_row['P'])} games: **{int(summary_row['Pts'])} points** "
-        f"({summary_record['W']}-{summary_record['D']}-{summary_record['L']}), "
-        f"goal difference {int(summary_row['GD']):+d}."
+        summary_html(
+            ordinal(int(summary_row["Position"])),
+            int(summary_row["P"]),
+            int(summary_row["Pts"]),
+            f"{summary_record['W']}-{summary_record['D']}-{summary_record['L']}",
+            int(summary_row["GD"]),
+            form_text(this_fixtures, TEAM),
+        ),
+        unsafe_allow_html=True,
     )
 
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(

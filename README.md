@@ -11,7 +11,7 @@ A Streamlit dashboard that compares Real Madrid's current La Liga season with th
 - **Player Stats:** top scorer, most assists, most shots and most minutes (each next to last season's leader), a leaders bar chart for any statistic, and a full squad table with a minutes filter and last season's totals. You can switch the whole tab between this season and last season.
 - **Tactics:** possession (average, highest, lowest) compared with last season, a rolling possession chart, the record in matches with little, medium and a lot of possession, and the record with each of Real Madrid's formations and against each opponent formation.
 
-A one-line summary of Real Madrid's league position sits above the tabs.
+Under the banner, a row of chips sums up where Real Madrid stand: league position, points, record, goal difference and the last five results as coloured circles (green win, grey draw, red loss).
 
 ## Setup (first time)
 
@@ -51,9 +51,17 @@ The very first run downloads eight pages from FBref (several minutes; Chrome win
 | `opponents.py` | The maths behind the Opponent Analysis tab: team results, head to head, recent form, next opponent |
 | `players.py` | The maths behind the Player Stats tab: cleaning the squad table, leaderboards, this season vs last season |
 | `tactics.py` | The maths behind the Tactics tab: possession summaries, possession bands, records by formation |
+| `styles.py` | The look of the dashboard: the CSS (colours, banner, cards, tabs) and the HTML for the banner and the chips |
+| `.streamlit/config.toml` | Streamlit's theme: base colours and font |
 | `check_league_data.py` | Checks the league-wide data against Real Madrid's own page (`python3 check_league_data.py`) |
 | `inspect_page.py` | Prints the tables on any FBref page, to explore a new page before writing code for it |
 | `data_cache/` | The saved downloads (not tracked by Git) |
+
+## Look and feel
+
+- The colours and fonts live in two places: `.streamlit/config.toml` (the base theme) and `styles.py` (gradients, cards, banner). Change a colour once at the top of the CSS in `styles.py` and it changes everywhere.
+- The banner shows the club crest if a file called `logo.svg` sits next to `app.py`. It is not tracked by Git (it is in `.gitignore`), so a fresh clone shows the banner without it. Add your own `logo.svg` to see it.
+- Streamlit reads `.streamlit/config.toml` only at startup, so restart `streamlit run app.py` after changing the theme. The CSS in `styles.py` updates when you refresh the page.
 
 ## How league positions are worked out
 
