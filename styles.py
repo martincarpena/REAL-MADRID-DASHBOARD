@@ -75,6 +75,43 @@ h1, h2, h3 {
     margin: 0.5rem 0 0 0;
 }
 
+/* The summary under the banner: a row of rounded "chips" */
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0.25rem 0 1.25rem 0;
+}
+.chip {
+    background: #FFFFFF;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 0.4rem 1rem;
+    font-size: 0.95rem;
+    color: var(--navy);
+    box-shadow: 0 1px 4px rgba(11, 31, 58, 0.06);
+}
+.chip b {
+    font-weight: 700;
+}
+/* Last results: a small coloured circle for each win, draw and loss */
+.dot {
+    display: inline-block;
+    width: 1.45rem;
+    height: 1.45rem;
+    line-height: 1.45rem;
+    margin-left: 0.3rem;
+    border-radius: 50%;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #FFFFFF;
+}
+.dot.W { background: #2E8B57; }
+.dot.D { background: #8A94A6; }
+.dot.L { background: #C0392B; }
+
 /* The metric cards: white, rounded, a soft shadow and a gold stripe */
 [data-testid="stMetric"] {
     background: #FFFFFF;
@@ -149,3 +186,20 @@ def hero_html(title, subtitle, logo_uri=None):
     the HTML block and the rest would show up as plain text."""
     crest = f'<img src="{logo_uri}" alt="Crest">' if logo_uri else ""
     return f'<div class="hero">{crest}<div><h1>{title}</h1><p>{subtitle}</p></div></div>'
+
+
+def summary_html(place, played, points, record, goal_difference, form):
+    """The one-line summary as a row of chips. `form` is the last results as
+    text such as "W W D L W" (or a dash when nothing has been played). Only the
+    letters W, D and L are turned into dots, so nothing else can slip into the
+    HTML. Like the banner, it is a single line with no blank lines in it."""
+    dots = "".join(f'<span class="dot {r}">{r}</span>' for r in form.split() if r in ("W", "D", "L"))
+    chips = [
+        f"<b>{place}</b> in La Liga",
+        f"<b>{points}</b> points after {played} games",
+        f"<b>{record}</b> (W-D-L)",
+        f"<b>{goal_difference:+d}</b> goal difference",
+    ]
+    if dots:
+        chips.append(f"Last results {dots}")
+    return '<div class="chips">' + "".join(f'<span class="chip">{c}</span>' for c in chips) + "</div>"

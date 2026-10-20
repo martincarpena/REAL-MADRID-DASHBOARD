@@ -19,7 +19,7 @@ from players import (
     squad_table,
     top_player,
 )
-from styles import CSS, hero_html, logo_data_uri
+from styles import CSS, hero_html, logo_data_uri, summary_html
 from tactics import (
     clean_schedule,
     formation_record,
@@ -294,10 +294,15 @@ if this_fixtures["Played"].any():
     summary_row = summary_table[summary_table["Team"] == TEAM].iloc[0]
     summary_record = meetings_summary(team_matches(this_fixtures, TEAM))
     st.markdown(
-        f"**{TEAM}** are **{ordinal(int(summary_row['Position']))}** in La Liga after "
-        f"{int(summary_row['P'])} games: **{int(summary_row['Pts'])} points** "
-        f"({summary_record['W']}-{summary_record['D']}-{summary_record['L']}), "
-        f"goal difference {int(summary_row['GD']):+d}."
+        summary_html(
+            ordinal(int(summary_row["Position"])),
+            int(summary_row["P"]),
+            int(summary_row["Pts"]),
+            f"{summary_record['W']}-{summary_record['D']}-{summary_record['L']}",
+            int(summary_row["GD"]),
+            form_text(this_fixtures, TEAM),
+        ),
+        unsafe_allow_html=True,
     )
 
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
