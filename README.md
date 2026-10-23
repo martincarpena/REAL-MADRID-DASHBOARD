@@ -11,6 +11,8 @@ A Streamlit dashboard that compares Real Madrid's current La Liga season with th
 - **Player Stats:** top scorer, most assists, most shots and most minutes (each next to last season's leader), a leaders bar chart for any statistic, and a full squad table with a minutes filter and last season's totals. You can switch the whole tab between this season and last season.
 - **Tactics:** possession (average, highest, lowest) compared with last season, a rolling possession chart, the record in matches with little, medium and a lot of possession, and the record with each of Real Madrid's formations and against each opponent formation.
 
+The charts are interactive: point at a chart and a line follows the mouse with the numbers for both seasons, bars light up in gold, and clicking a season in a chart's legend shows only that season. Each tab fits a lot on one screen, with charts and tables laid out side by side in cards. A footer shows where the data comes from and when this season's data was last downloaded.
+
 Under the banner, a row of chips sums up where Real Madrid stand: league position, points, record, goal difference and the last five results as coloured circles (green win, grey draw, red loss).
 
 ## Setup (first time)
@@ -51,7 +53,9 @@ The very first run downloads eight pages from FBref (several minutes; Chrome win
 | `opponents.py` | The maths behind the Opponent Analysis tab: team results, head to head, recent form, next opponent |
 | `players.py` | The maths behind the Player Stats tab: cleaning the squad table, leaderboards, this season vs last season |
 | `tactics.py` | The maths behind the Tactics tab: possession summaries, possession bands, records by formation |
-| `styles.py` | The look of the dashboard: the CSS (colours, banner, cards, tabs) and the HTML for the banner and the chips |
+| `charts.py` | The chart designs (Altair): the season-against-season line charts, the leaders bar chart and the possession bars, with their hover and click effects |
+| `tables.py` | How the tables look: clean numbers, dashes for empty cells, coloured W/D/L results and the highlighted Real Madrid row in the league tables |
+| `styles.py` | The look of the dashboard: the CSS (colours, banner, cards, tabs, footer) and the HTML for the banner, the chips, the tab titles and the footer |
 | `.streamlit/config.toml` | Streamlit's theme: base colours and font |
 | `check_league_data.py` | Checks the league-wide data against Real Madrid's own page (`python3 check_league_data.py`) |
 | `inspect_page.py` | Prints the tables on any FBref page, to explore a new page before writing code for it |
@@ -59,7 +63,9 @@ The very first run downloads eight pages from FBref (several minutes; Chrome win
 
 ## Look and feel
 
-- The colours and fonts live in two places: `.streamlit/config.toml` (the base theme) and `styles.py` (gradients, cards, banner). Change a colour once at the top of the CSS in `styles.py` and it changes everywhere.
+- The colours and fonts live in two places: `.streamlit/config.toml` (the base theme) and `styles.py` (gradients, cards, banner). Change a colour once at the top of the CSS in `styles.py` and it changes everywhere. The chart colours are set at the top of `charts.py`.
+- Each chart or main table sits in a "card": a white box with a blue border and a navy title strip. `app.py` makes them with the `card()` helper, and the CSS in `styles.py` finds them by name (`card_1`, `card_2`...). Cards in the same row stretch to the same height.
+- Each tab starts with a slim navy band holding its title and a one-line description.
 - The banner shows the club crest if a file called `logo.svg` sits next to `app.py`. It is not tracked by Git (it is in `.gitignore`), so a fresh clone shows the banner without it. Add your own `logo.svg` to see it.
 - Streamlit reads `.streamlit/config.toml` only at startup, so restart `streamlit run app.py` after changing the theme. The CSS in `styles.py` updates when you refresh the page.
 
