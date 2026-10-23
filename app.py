@@ -22,6 +22,7 @@ from players import (
     top_player,
 )
 from charts import leaders_bar_chart, line_chart, result_bars_chart
+from champions import played_games, summary as cl_summary, upcoming_games
 from styles import CSS, footer_html, hero_html, logo_data_uri, summary_html, tab_band_html
 from tables import fit_height, style_table
 from tactics import (
@@ -307,8 +308,9 @@ if this_fixtures["Played"].any():
         unsafe_allow_html=True,
     )
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
-    ["Season Dashboard", "Match Stats", "Efficiency Stats", "Opponent Analysis", "Player Stats", "Tactics"]
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+    ["Season Dashboard", "Match Stats", "Efficiency Stats", "Opponent Analysis", "Player Stats", "Tactics",
+     "Champions League"]
 )
 
 with tab1:
@@ -854,6 +856,76 @@ with tab6:
             "possession line is the average over the previous matches, which smooths out one-off "
             "games; the line starts once there are enough matches to fill the window. A full season "
             "has many more matches than the first few, so its percentages are steadier."
+        )
+
+with tab7:
+    tab_header("Champions League", "Real Madrid's Champions League games only: results, goals and the games "
+               "still to come. These matches also count in the other tabs.")
+    this_cl = played_games(this_sched)
+    last_cl = played_games(last_sched)
+    n_cl = len(this_cl)
+
+    if n_cl == 0:
+        st.info("No Champions League games played yet this season.")
+    else:
+        # Last season, cut off at the same number of games, for a fair comparison
+        last_cl_same = last_cl[last_cl["Game"] <= n_cl]
+        now_cl = cl_summary(this_cl)
+        before_cl = cl_summary(last_cl_same)
+
+        note, switch = st.columns([3, 2])
+        note.caption(f"After {n_cl} Champions League games: this season vs. the same point last season")
+        cl_view = switch.radio(
+            "Compare",
+            ["Same point in the season", "Full last season"],
+            horizontal=True,
+            label_visibility="collapsed",
+            key="champions_view",
+        )
+
+        col1, col2, col3, col4, col5 = st.columns(5)
+        metric_note(col1, "Record (W-D-L)", f"{now_cl['W']}-{now_cl['D']}-{now_cl['L']}",
+                    f"Last season: {before_cl['W']}-{before_cl['D']}-{before_cl['L']}")
+        col2.metric("Points", now_cl["Points"], delta=now_cl["Points"] - before_cl["Points"])
+        col3.metric("Goals For", now_cl["GF"], delta=now_cl["GF"] - before_cl["GF"])
+        col4.metric("Goals Against", now_cl["GA"], delta=now_cl["GA"] - before_cl["GA"],
+                    delta_color="inverse")
+        col5.metric("Average possession", fmt(now_cl["Poss"], 1, "%"),
+                    delta=change(now_cl["Poss"], before_cl["Poss"], 1, " pp"))
+
+        # Three charts side by side. Each one lines both seasons up by game number.
+        last_cl_view = last_cl if cl_view == "Full last season" else last_cl_same
+
+        def per_game(column):
+            return pd.DataFrame({
+                "This season": this_cl.set_index("Game")[column],
+                "Last season": last_cl_view.set_index("Game")[column],
+            }).sort_index()
+
+        left, middle, right = st.columns(3)
+        with left, card("Cumulative points by games played"):
+            show_lines(per_game("Cumulative Points"), "Games played", "Points", height=260, zero=True)
+        with middle, card("Goals scored in each match"):
+            show_lines(per_game("GF"), "Games played", "Goals scored", height=260, zero=True)
+        with right, card("Goals conceded in each match"):
+            show_lines(per_game("GA"), "Games played", "Goals conceded", height=260, zero=True)
+
+        # Two tables: this season (played and still to come) and last season's whole run
+        table_cols = ["Date", "Round", "Opponent", "Venue", "Result", "GF", "GA"]
+        this_games = pd.concat([this_cl[table_cols], upcoming_games(this_sched)[table_cols]],
+                               ignore_index=True)
+        cl_table_height = fit_height(8)  # the league phase has 8 games; longer tables scroll
+        left, right = st.columns(2)
+        with left, card("This season's Champions League games"):
+            show_table(this_games, height=cl_table_height)
+        with right, card("Last season's Champions League run"):
+            show_table(last_cl[table_cols], height=cl_table_height)
+
+        st.caption(
+            "The Champions League starts with a league phase of 8 games per team, then knockout rounds. "
+            "Points use the same rule as La Liga (3 for a win, 1 for a draw). Games still to play are "
+            "listed with empty results. The league-phase standings with the other teams, and Champions "
+            "League player numbers, are not in the data this dashboard uses, so they are not shown."
         )
 
 # ---- Footer: where the data comes from ----
