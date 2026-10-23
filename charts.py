@@ -96,7 +96,12 @@ def line_chart(wide, x_title, y_title, height=240, y_domain=None, y_values=None,
         return None
 
     y_scale = alt.Scale(domain=y_domain) if y_domain else alt.Scale(zero=zero)
-    y_axis = alt.Axis(values=y_values) if y_values else alt.Axis()
+    if y_values:
+        y_axis = alt.Axis(values=y_values)
+    elif decimals == 0:
+        y_axis = alt.Axis(tickMinStep=1, format="d")  # whole numbers only: no 0.5 or 1.5
+    else:
+        y_axis = alt.Axis()
 
     # Two "selections": things the chart remembers about what you did with the mouse.
     # `hover` remembers which match is nearest to the cursor (empty when the

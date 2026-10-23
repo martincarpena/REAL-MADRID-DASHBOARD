@@ -59,12 +59,30 @@ def _team_row(table, team):
     return styles
 
 
+def _dash_empty(table):
+    """A copy of the table where every empty cell reads "–". Streamlit draws an
+    empty cell as "None" whatever the Styler says, so a column that has empty
+    cells is turned into text. (A text column sorts as text, which only matters
+    for the few columns that have a gap.)"""
+    table = table.copy()
+    for name in table.columns:
+        if not table[name].isna().any():
+            continue
+        if pd.api.types.is_float_dtype(table[name]):
+            places = _decimals(table[name])
+            table[name] = table[name].map(lambda v: EMPTY if pd.isna(v) else f"{v:.{places}f}")
+        else:
+            table[name] = table[name].astype(object).where(table[name].notna(), EMPTY)
+    return table
+
+
 def style_table(table, team=None):
     """The table with every look above applied. `team` is the name to tint in
     a league table (needs a Team column); leave it out for other tables."""
+    table = _dash_empty(table)
     styler = table.style
 
-    # Numbers: a dash for empty cells, and whole numbers without decimals
+    # Numbers: whole numbers without decimals, and the same decimals down a column
     styler = styler.format(na_rep=EMPTY)
     for name in table.columns:
         if pd.api.types.is_float_dtype(table[name]):
