@@ -19,6 +19,10 @@ SHOOTING_PATH = "/shooting/Real-Madrid-Match-Logs-All-Competitions"
 # Every La Liga match of a season (all 20 teams), used to build the league table.
 LEAGUE_URL = "https://fbref.com/en/comps/12/{season}/schedule/{season}-La-Liga-Scores-and-Fixtures"
 
+# Every Champions League match of a season (all teams, all rounds), used to build
+# the league-phase table.
+CHAMPIONS_URL = "https://fbref.com/en/comps/8/{season}/schedule/{season}-Champions-League-Scores-and-Fixtures"
+
 # Real Madrid's squad page: one row per player (minutes, goals, assists, shooting...).
 SQUAD_URL = "https://fbref.com/en/squads/53a2f082/{season}/Real-Madrid-Stats"
 
@@ -102,6 +106,15 @@ def _scrape_league(season):
     return find_table(tables, ["Wk", "Home", "Score", "Away"])
 
 
+def _scrape_champions(season):
+    """The page has several tables (other competitions, qualifying rounds), so
+    the right one is found by its columns: only the Champions League matches
+    table has both Round and Wk."""
+    html = fetch_html(CHAMPIONS_URL.format(season=season))
+    tables = pd.read_html(io.StringIO(html))
+    return find_table(tables, ["Round", "Wk", "Home", "Score", "Away"])
+
+
 def _flatten_player_column(col):
     """Player tables have a two-level header. A few names appear twice, once as
     a season total and once per 90 minutes (both are called 'Gls', for example),
@@ -162,6 +175,10 @@ def get_league_fixtures(season=CURRENT_SEASON, refresh=False):
     return _load_or_scrape("league", season, refresh, _scrape_league)
 
 
+def get_champions_fixtures(season=CURRENT_SEASON, refresh=False):
+    return _load_or_scrape("champions", season, refresh, _scrape_champions)
+
+
 def get_players(season=CURRENT_SEASON, refresh=False):
     return _load_or_scrape("players", season, refresh, _scrape_players)
 
@@ -183,14 +200,16 @@ if __name__ == "__main__":
     shooting = get_shooting_log(CURRENT_SEASON, refresh=True)
     league = get_league_fixtures(CURRENT_SEASON, refresh=True)
     players = get_players(CURRENT_SEASON, refresh=True)
-    print(f"  schedule: {len(schedule)} rows | shooting: {len(shooting)} rows | league: {len(league)} rows | players: {len(players)} rows")
+    champions = get_champions_fixtures(CURRENT_SEASON, refresh=True)
+    print(f"  schedule: {len(schedule)} rows | shooting: {len(shooting)} rows | league: {len(league)} rows | players: {len(players)} rows | champions: {len(champions)} rows")
 
     print("Checking last season's data (downloads only if missing)...")
     schedule = get_match_log(LAST_SEASON)
     shooting = get_shooting_log(LAST_SEASON)
     league = get_league_fixtures(LAST_SEASON)
     players = get_players(LAST_SEASON)
-    print(f"  schedule: {len(schedule)} rows | shooting: {len(shooting)} rows | league: {len(league)} rows | players: {len(players)} rows")
+    champions = get_champions_fixtures(LAST_SEASON)
+    print(f"  schedule: {len(schedule)} rows | shooting: {len(shooting)} rows | league: {len(league)} rows | players: {len(players)} rows | champions: {len(champions)} rows")
 
     print(f"\nDone. Files are in: {CACHE_DIR}")
     print("Now run: streamlit run app.py")

@@ -4,6 +4,7 @@ from contextlib import contextmanager
 import pandas as pd
 import streamlit as st
 from data import (
+    get_champions_fixtures,
     get_match_log,
     get_shooting_log,
     get_league_fixtures,
@@ -22,7 +23,15 @@ from players import (
     top_player,
 )
 from charts import leaders_bar_chart, line_chart, result_bars_chart
-from champions import played_games, summary as cl_summary, upcoming_games
+from champions import (
+    clean_fixtures as clean_cl_fixtures,
+    league_table as cl_league_table,
+    played_games,
+    position_history as cl_position_history,
+    summary as cl_summary,
+    team_weeks_played,
+    upcoming_games,
+)
 from styles import CSS, footer_html, hero_html, logo_data_uri, summary_html, tab_band_html
 from tables import fit_height, style_table
 from tactics import (
@@ -262,12 +271,13 @@ with st.sidebar:
     st.caption(f"This season's data last downloaded: {last_downloaded(CURRENT_SEASON) or 'never'}")
     st.caption("Last season is final, so it is downloaded only once.")
     if st.button("Refresh this season's data"):
-        with st.spinner("Downloading from FBref — opens Chrome four times, about two minutes..."):
+        with st.spinner("Downloading from FBref — opens Chrome five times, about three minutes..."):
             try:
                 get_match_log(CURRENT_SEASON, refresh=True)
                 get_shooting_log(CURRENT_SEASON, refresh=True)
                 get_league_fixtures(CURRENT_SEASON, refresh=True)
                 get_players(CURRENT_SEASON, refresh=True)
+                get_champions_fixtures(CURRENT_SEASON, refresh=True)
             except Exception as error:
                 st.error(f"Refresh failed: {error}")
             else:
@@ -883,7 +893,19 @@ with tab7:
             key="champions_view",
         )
 
-        col1, col2, col3, col4, col5 = st.columns(5)
+        # The league-phase table needs the whole competition's fixtures (a separate download).
+        # If they are missing, the rest of the tab still works.
+        try:
+            this_cl_fixtures = clean_cl_fixtures(get_champions_fixtures(CURRENT_SEASON))
+            last_cl_fixtures = clean_cl_fixtures(get_champions_fixtures(LAST_SEASON))
+            weeks_played = team_weeks_played(this_cl_fixtures, TEAM)
+            cl_weeks = max(weeks_played) if weeks_played else None
+        except Exception as error:
+            st.warning(f"The Champions League table could not be loaded ({error}). "
+                       "Run `python3 data.py` in the terminal to download it.")
+            this_cl_fixtures = last_cl_fixtures = cl_weeks = None
+
+        col1, col2, col3, col4, col5, col6 = st.columns(6)
         metric_note(col1, "Record (W-D-L)", f"{now_cl['W']}-{now_cl['D']}-{now_cl['L']}",
                     f"Last season: {before_cl['W']}-{before_cl['D']}-{before_cl['L']}")
         col2.metric("Points", now_cl["Points"], delta=now_cl["Points"] - before_cl["Points"])
@@ -892,6 +914,44 @@ with tab7:
                     delta_color="inverse")
         col5.metric("Average possession", fmt(now_cl["Poss"], 1, "%"),
                     delta=change(now_cl["Poss"], before_cl["Poss"], 1, " pp"))
+
+        # Real Madrid's place in the 36-team league-phase table, against the same matchweek last season
+        this_cl_places = last_cl_places = None
+        if cl_weeks is None:
+            col6.metric("League phase position", "–")
+        else:
+            this_cl_places = cl_position_history(this_cl_fixtures, TEAM, cl_weeks)
+            last_cl_places = cl_position_history(last_cl_fixtures, TEAM, int(last_cl_fixtures["Wk"].max()))
+            this_place = int(this_cl_places.iloc[-1]["Position"])
+            last_at_week = last_cl_places[last_cl_places["Wk"] == cl_weeks]
+            if len(last_at_week) == 0:
+                col6.metric("League phase position", ordinal(this_place))
+            else:
+                last_place = int(last_at_week.iloc[0]["Position"])
+                moved = last_place - this_place  # positive = higher up than last season
+                if moved == 0:
+                    metric_note(col6, "League phase position", ordinal(this_place),
+                                f"Same as last season: {ordinal(last_place)}")
+                else:
+                    col6.metric("League phase position", ordinal(this_place),
+                                delta=f"{moved:+d} vs {ordinal(last_place)} last season")
+
+        # The full table (all 36 teams) next to Real Madrid's place after each matchweek
+        if cl_weeks is not None:
+            if cl_view == "Full last season":
+                last_cl_shown = last_cl_places
+            else:
+                last_cl_shown = last_cl_places[last_cl_places["Wk"] <= cl_weeks]
+            places = pd.DataFrame({
+                "This season": this_cl_places.set_index("Wk")["Position"],
+                "Last season": last_cl_shown.set_index("Wk")["Position"],
+            }).sort_index()
+            left, right = st.columns([3, 2])
+            with left, card(f"League phase table after matchweek {cl_weeks}"):
+                show_table(cl_league_table(this_cl_fixtures, cl_weeks), team=TEAM, height=fit_height(10))
+            with right, card("Real Madrid's place in the table by matchweek"):
+                show_lines(places, "Matchweek", "League phase position (1 = top)", height=280,
+                           y_domain=[36, 1], y_values=[1, 8, 16, 24, 36])
 
         # Three charts side by side. Each one lines both seasons up by game number.
         last_cl_view = last_cl if cl_view == "Full last season" else last_cl_same
@@ -924,8 +984,11 @@ with tab7:
         st.caption(
             "The Champions League starts with a league phase of 8 games per team, then knockout rounds. "
             "Points use the same rule as La Liga (3 for a win, 1 for a draw). Games still to play are "
-            "listed with empty results. The league-phase standings with the other teams, and Champions "
-            "League player numbers, are not in the data this dashboard uses, so they are not shown."
+            "listed with empty results. The league-phase table is worked out from every Champions League "
+            "match on FBref, ordered like UEFA's: points, goal difference, goals scored, away goals, wins "
+            "and away wins. UEFA's later tie-breakers (the opponents' results, discipline, club ranking) "
+            "are not applied, so teams still level are listed alphabetically. The top 8 go straight to the "
+            "round of 16, 9th to 24th play the knockout play-offs and the rest are out."
         )
 
 # ---- Footer: where the data comes from ----
