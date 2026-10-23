@@ -29,9 +29,13 @@ CSS = """
     --line: #E4E0D5;
 }
 
-/* Less empty space above the banner */
+/* Use the whole width of the screen, with less empty space around the page */
 .block-container {
-    padding-top: 3rem;
+    padding-top: 2.5rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+    padding-bottom: 2rem;
+    max-width: 100%;
 }
 
 /* Headings get a bolder, sportier font. If the font cannot load, the
@@ -45,34 +49,36 @@ h1, h2, h3 {
 .hero {
     display: flex;
     align-items: center;
-    gap: 1.75rem;
+    justify-content: center;
+    text-align: center;
+    gap: 1.25rem;
     background: linear-gradient(120deg, var(--navy) 0%, var(--blue) 70%, #1B74C9 100%);
     border-radius: 16px;
-    border-bottom: 5px solid var(--gold);
-    padding: 2rem 2.5rem;
-    margin-bottom: 1rem;
+    border-bottom: 4px solid var(--gold);
+    padding: 0.9rem 1.75rem;
+    margin-bottom: 0.6rem;
     box-shadow: 0 8px 24px rgba(11, 31, 58, 0.25);
 }
 /* The crest sits on a white tile so it stays readable on the dark gradient */
 .hero img {
-    height: 110px;
+    height: 72px;
     width: auto;
     background: rgba(255, 255, 255, 0.96);
-    border-radius: 14px;
-    padding: 8px 12px;
+    border-radius: 12px;
+    padding: 6px 10px;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 .hero h1 {
     color: #FFFFFF !important;
-    font-size: 2.4rem;
+    font-size: 1.9rem;
     font-weight: 800;
     margin: 0;
     padding: 0;
 }
 .hero p {
     color: rgba(255, 255, 255, 0.85);
-    font-size: 1.05rem;
-    margin: 0.5rem 0 0 0;
+    font-size: 0.95rem;
+    margin: 0.25rem 0 0 0;
 }
 
 /* The summary under the banner: a row of rounded "chips" */
@@ -80,15 +86,16 @@ h1, h2, h3 {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.6rem;
-    margin: 0.25rem 0 1.25rem 0;
+    justify-content: center;
+    gap: 0.5rem;
+    margin: 0.1rem 0 0.7rem 0;
 }
 .chip {
     background: #FFFFFF;
     border: 1px solid var(--line);
     border-radius: 999px;
-    padding: 0.4rem 1rem;
-    font-size: 0.95rem;
+    padding: 0.3rem 0.85rem;
+    font-size: 0.9rem;
     color: var(--navy);
     box-shadow: 0 1px 4px rgba(11, 31, 58, 0.06);
 }
@@ -112,30 +119,135 @@ h1, h2, h3 {
 .dot.D { background: #8A94A6; }
 .dot.L { background: #C0392B; }
 
-/* The metric cards: white, rounded, a soft shadow and a gold stripe */
+/* Every chart and main table sits in a "card": a white box with a strong blue
+   border, a navy title strip on top and the content below. app.py names the
+   boxes card_1, card_2... and body_1, body_2... and the rules below pick them
+   up by that name. */
+[class*="st-key-card_"] {
+    background: #FFFFFF;
+    border: 2px solid var(--blue);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 82, 159, 0.18);
+    gap: 0 !important;
+}
+.card-title {
+    background: linear-gradient(100deg, var(--navy) 0%, var(--blue) 100%);
+    color: #FFFFFF;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 0.01em;
+    padding: 0.5rem 0.9rem;
+    border-bottom: 3px solid var(--gold);
+}
+
+/* Streamlit pulls the element after a text block up by 1rem. That pulled the
+   table or chart over the gold line. Switch the pull off for the title, and
+   keep the title strip on top of whatever sits under it. */
+[class*="st-key-card_"] [data-testid="stMarkdownContainer"]:has(.card-title) {
+    margin-bottom: 0 !important;
+}
+[class*="st-key-card_"] [data-testid="stMarkdown"]:has(.card-title) {
+    margin-bottom: 0 !important;
+    position: relative;
+    z-index: 2;
+}
+
+[class*="st-key-body_"] {
+    padding: 0.7rem 0.8rem 0.4rem 0.8rem;
+}
+/* A table inside a card does not need a border of its own */
+[class*="st-key-body_"] [data-testid="stDataFrame"] {
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+}
+
+/* The title of each tab: a slim navy band with a gold edge. The title and the
+   one-line description sit side by side. */
+.tab-band {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.2rem 1.1rem;
+    background: linear-gradient(100deg, var(--navy) 0%, var(--blue) 100%);
+    border-left: 6px solid var(--gold);
+    border-radius: 12px;
+    padding: 0.5rem 1.2rem;
+    box-shadow: 0 4px 14px rgba(11, 31, 58, 0.20);
+}
+.tab-band h2 {
+    font-family: 'Montserrat', sans-serif;
+    color: #FFFFFF !important;
+    font-size: 1.3rem;
+    font-weight: 800;
+    margin: 0;
+    padding: 0;
+}
+.tab-band p {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.9rem;
+    margin: 0;
+}
+/* Same fix as for the card titles: switch off Streamlit's pull-up under the band,
+   or the line of text that follows would slide underneath it. */
+[data-testid="stMarkdownContainer"]:has(.tab-band),
+[data-testid="stMarkdown"]:has(.tab-band) {
+    margin-bottom: 0 !important;
+}
+
+/* Tighter spacing between the parts of the page */
+[data-testid="stVerticalBlock"] {
+    gap: 0.6rem;
+}
+
+/* The metric cards: white, rounded, a soft shadow and a gold stripe. They are
+   kept compact so a whole row of them takes little height. */
 [data-testid="stMetric"] {
     background: #FFFFFF;
     border: 1px solid var(--line);
     border-left: 5px solid var(--gold);
     border-radius: 12px;
-    padding: 0.9rem 1.1rem;
-    min-height: 8rem;
-    box-shadow: 0 2px 10px rgba(11, 31, 58, 0.08);
+    padding: 0.55rem 0.9rem;
+    min-height: 6.8rem;
+    box-shadow: 0 2px 12px rgba(11, 31, 58, 0.10);
 }
 [data-testid="stMetricValue"] {
     font-family: 'Montserrat', sans-serif;
     font-weight: 700;
+    font-size: 1.75rem;
     color: var(--navy);
 }
+/* The change under each value (the green and red arrows): a little bolder so it
+   reads at a glance. Streamlit already colours it green or red. */
+[data-testid="stMetricDelta"] {
+    font-weight: 700;
+    font-size: 0.85rem;
+}
 
-/* Tabs: bolder labels and a gold bar under the selected one */
-button[data-baseweb="tab"] {
+/* Tabs: the bar spans the whole page and every tab takes an equal share of it.
+   Streamlit draws each tab as a <div role="tab">, and the strip they sit in as
+   <div role="tablist">. The gold bar under the selected tab is a small piece
+   inside the tab that Streamlit paints blue, so it is repainted gold here. */
+[role="tablist"] {
+    width: 100% !important;
+    gap: 0 !important;
+}
+[role="tab"] {
+    flex: 1 1 0 !important;
+    justify-content: center !important;
+}
+[role="tab"] p {
     font-weight: 600;
     font-size: 1.05rem;
 }
-[data-baseweb="tab-highlight"] {
+[role="tab"][data-selected] .react-aria-SelectionIndicator {
     background-color: var(--gold) !important;
-    height: 3px;
+    height: 4px !important;
+}
+[role="tab"][data-selected] p {
+    color: var(--navy);
 }
 
 /* Section headings: the big title at the top of each tab gets a short gold
@@ -156,6 +268,39 @@ button[data-baseweb="tab"] {
 [data-testid="stHeading"] h3 {
     color: var(--navy);
     font-weight: 700;
+    font-size: 1.2rem;
+    padding: 0.8rem 0 0.4rem 0;
+}
+
+/* Cards in the same row stretch to the height of the tallest one, so their
+   bottom edges line up. This is the one block that is a best guess without
+   seeing the page: if cards look wrong after it, delete just this block. */
+[data-testid="stColumn"]:has([class*="st-key-card_"]) {
+    display: flex;
+    flex-direction: column;
+}
+[data-testid="stColumn"]:has([class*="st-key-card_"]) > [data-testid="stVerticalBlock"] {
+    flex: 1 1 auto;
+}
+[data-testid="stColumn"] [data-testid="stLayoutWrapper"]:has(> [class*="st-key-card_"]),
+[data-testid="stColumn"] [data-testid="stLayoutWrapper"][class*="st-key-card_"] {
+    flex: 1 1 auto;
+}
+[data-testid="stColumn"] [class*="st-key-card_"] {
+    height: 100%;
+}
+
+/* The footer at the bottom of the page */
+.footer {
+    text-align: center;
+    color: #6B7280;
+    font-size: 0.85rem;
+    border-top: 1px solid var(--line);
+    margin-top: 0.8rem;
+    padding-top: 0.8rem;
+}
+.footer b {
+    color: var(--navy);
 }
 
 /* The sidebar fades from cream to white */
@@ -176,13 +321,16 @@ button[data-baseweb="tab"] {
     color: #FFFFFF;
 }
 
-/* Tables and the "see the matches" boxes: rounded corners */
+/* The "see the matches" boxes, and tables that are not in a card */
 [data-testid="stExpander"] {
-    border: 1px solid var(--line);
-    border-radius: 12px;
+    background: #FFFFFF;
+    border: 2px solid var(--blue);
+    border-radius: 14px;
+    box-shadow: 0 4px 16px rgba(0, 82, 159, 0.14);
 }
 [data-testid="stDataFrame"] {
-    border-radius: 10px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
     overflow: hidden;
 }
 </style>
@@ -223,3 +371,15 @@ def summary_html(place, played, points, record, goal_difference, form):
     if dots:
         chips.append(f"Last results {dots}")
     return '<div class="chips">' + "".join(f'<span class="chip">{c}</span>' for c in chips) + "</div>"
+
+
+def tab_band_html(title, subtitle):
+    """The banner at the top of a tab: the title and one line under it. Like
+    the page banner, it is a single line with no blank lines in it."""
+    return f'<div class="tab-band"><h2>{title}</h2><p>{subtitle}</p></div>'
+
+
+def footer_html(source, downloaded):
+    """The line at the very bottom: where the numbers come from and when this
+    season's data was last downloaded. Single line, like the other blocks."""
+    return f'<div class="footer">Data: <b>{source}</b> &nbsp;·&nbsp; This season\'s data last downloaded: {downloaded}</div>'
