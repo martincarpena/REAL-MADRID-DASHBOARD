@@ -303,6 +303,42 @@ h1, h2, h3 {
     color: var(--navy);
 }
 
+/* The trend check: a small table with a coloured pill for each verdict */
+.trend-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+.trend-table th {
+    text-align: left;
+    color: #6B7280;
+    font-weight: 600;
+    padding: 0.35rem 0.4rem;
+    border-bottom: 2px solid var(--line);
+    background: transparent;
+}
+.trend-table td {
+    padding: 0.5rem 0.4rem;
+    color: var(--navy);
+    border-bottom: 1px solid var(--line);
+    background: transparent;
+}
+.trend-table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.pill {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 0.15rem 0.7rem;
+    font-weight: 700;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+.pill.good { background: #DDF3E4; color: #17653A; }
+.pill.bad { background: #FADBD8; color: #9B2C20; }
+.pill.flat { background: #E8ECF1; color: #4B5563; }
+
 /* The sidebar fades from cream to white */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, var(--cream) 0%, #FFFFFF 100%);
@@ -383,3 +419,18 @@ def footer_html(source, downloaded):
     """The line at the very bottom: where the numbers come from and when this
     season's data was last downloaded. Single line, like the other blocks."""
     return f'<div class="footer">Data: <b>{source}</b> &nbsp;·&nbsp; This season\'s data last downloaded: {downloaded}</div>'
+
+
+def trend_table_html(rows):
+    """The trend check as an HTML table, one row per metric. Each row is a dict
+    with Metric, Recent, Earlier, Change, Verdict and Kind (good, bad or flat,
+    which picks the pill's colour). A single line with no blank lines, like the
+    other blocks."""
+    head = ('<tr><th>Metric</th><th class="num">Last matches</th><th class="num">Before</th>'
+            '<th class="num">Change</th><th>Trend</th></tr>')
+    body = "".join(
+        f'<tr><td>{r["Metric"]}</td><td class="num">{r["Recent"]}</td><td class="num">{r["Earlier"]}</td>'
+        f'<td class="num">{r["Change"]}</td><td><span class="pill {r["Kind"]}">{r["Verdict"]}</span></td></tr>'
+        for r in rows
+    )
+    return f'<table class="trend-table">{head}{body}</table>'
