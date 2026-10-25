@@ -55,7 +55,7 @@ from champions import (
     team_weeks_played,
     upcoming_games,
 )
-from styles import CSS, footer_html, hero_html, logo_data_uri, summary_html, tab_band_html, trend_table_html
+from styles import CSS, brand_html, club_panel_html, footer_html, logo_data_uri, tab_band_html, trend_table_html
 from tables import fit_height, style_table
 from tactics import (
     clean_schedule,
@@ -77,8 +77,8 @@ from opponents import (
 
 st.set_page_config(page_title="Real Madrid Dashboard", page_icon="⚽", layout="wide")
 
-THIS_COLOR = "#00529F"  # this season: Real Madrid blue (the same blue as the theme)
-LAST_COLOR = "#9aa0a6"  # last season: gray
+THIS_COLOR = "#D4AF37"  # this season: gold (the same gold as the theme)
+LAST_COLOR = "#7B8798"  # last season: slate grey
 TEAM = "Real Madrid"    # must match the team's name in FBref's league-wide table
 
 
@@ -111,7 +111,7 @@ def _box(key):
 
 @contextmanager
 def card(title):
-    """A white box with a navy title strip on top. Everything drawn inside a
+    """A dark box with a title strip on top. Everything drawn inside a
     `with card("Title"):` block goes in the box. The boxes are numbered
     card_1, card_2... (the counter starts again at 1 on every run of the page)
     and styles.py gives anything with that name its look."""
@@ -150,7 +150,7 @@ def metric_note(column, label, value, note):
 
 
 def tab_header(title, subtitle):
-    """The navy band at the top of a tab."""
+    """The dark band at the top of a tab."""
     st.markdown(tab_band_html(title, subtitle), unsafe_allow_html=True)
 
 
@@ -279,18 +279,33 @@ def change(value, last, decimals=2, suffix=""):
 
 # ---- Styling and the banner at the top (the CSS lives in styles.py) ----
 st.markdown(CSS, unsafe_allow_html=True)
-st.markdown(
-    hero_html(
-        "Real Madrid Analytics Dashboard",
-        f"La Liga {CURRENT_SEASON} compared with {LAST_SEASON} at the same point of the season",
-        logo_data_uri(),
-    ),
-    unsafe_allow_html=True,
-)
 
-# ---- Sidebar: when the data was downloaded, and a button to refresh it ----
+# ---- Sidebar: the crest, the page menu, the club panel and the data controls ----
+PAGES = ["Season Dashboard", "Match Stats", "Efficiency Stats", "Opponent Analysis", "Player Stats", "Tactics",
+         "Champions League", "Analysis"]
+
 with st.sidebar:
-    st.header("Data")
+    st.markdown(brand_html(logo_data_uri(), "Analytics"), unsafe_allow_html=True)
+    st.markdown('<div class="side-label">Pages</div>', unsafe_allow_html=True)
+    # One button per page. The page you are on is drawn as a "primary" button
+    # (styles.py gives it the gold edge). Clicking a button runs go_to, which
+    # remembers the page in st.session_state, Streamlit's memory between clicks.
+    if "page" not in st.session_state:
+        st.session_state["page"] = PAGES[0]
+
+    def go_to(name):
+        st.session_state["page"] = name
+
+    with st.container(key="nav"):
+        for name in PAGES:
+            st.button(name, key=f"nav_{name}", on_click=go_to, args=(name,),
+                      type="primary" if st.session_state["page"] == name else "secondary")
+    page = st.session_state["page"]
+
+    # An empty box for the club panel. It is filled in below, once the data has loaded.
+    club_slot = st.container()
+
+    st.markdown('<div class="side-label">Data</div>', unsafe_allow_html=True)
     st.caption(f"This season's data last downloaded: {last_downloaded(CURRENT_SEASON) or 'never'}")
     st.caption("Last season is final, so it is downloaded only once.")
     if st.button("Refresh this season's data"):
@@ -323,30 +338,31 @@ with st.spinner("Loading data. The very first time, this downloads eight pages f
         st.info("Run `python3 data.py` in the terminal to see the full error and to download the data files.")
         st.stop()
 
-# ---- One-line summary of where the season stands, shown above the tabs ----
+# ---- The club panel in the sidebar: where the season stands, always in view ----
 if this_fixtures["Played"].any():
     summary_week = int(this_fixtures.loc[this_fixtures["Played"], "Wk"].max())
     summary_table = league_table(this_fixtures, summary_week)
     summary_row = summary_table[summary_table["Team"] == TEAM].iloc[0]
     summary_record = meetings_summary(team_matches(this_fixtures, TEAM))
-    st.markdown(
-        summary_html(
-            ordinal(int(summary_row["Position"])),
-            int(summary_row["P"]),
-            int(summary_row["Pts"]),
-            f"{summary_record['W']}-{summary_record['D']}-{summary_record['L']}",
-            int(summary_row["GD"]),
-            form_text(this_fixtures, TEAM),
-        ),
-        unsafe_allow_html=True,
-    )
+    with club_slot:
+        st.markdown(
+            club_panel_html(
+                ordinal(int(summary_row["Position"])),
+                int(summary_row["P"]),
+                int(summary_row["Pts"]),
+                f"{summary_record['W']}-{summary_record['D']}-{summary_record['L']}",
+                int(summary_row["GD"]),
+                form_text(this_fixtures, TEAM),
+                next_opponent(this_fixtures, TEAM),
+                f"La Liga {CURRENT_SEASON}, compared with {LAST_SEASON}",
+            ),
+            unsafe_allow_html=True,
+        )
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(
-    ["Season Dashboard", "Match Stats", "Efficiency Stats", "Opponent Analysis", "Player Stats", "Tactics",
-     "Champions League", "Analysis"]
-)
+# Only the page chosen in the sidebar menu is drawn: each page below sits in an
+# `if page == ...:` block, so the other pages are skipped (and the app is faster).
 
-with tab1:
+if page == "Season Dashboard":
     this_league = prepare_league_games(this_sched)
     last_league = prepare_league_games(last_sched)
 
@@ -408,13 +424,13 @@ with tab1:
                 # Positive = higher up the table than last season at this point
                 moved = last_place - this_place
                 if moved == 0:
-                    metric_note(col5, f"League position (matchweek {weeks})", ordinal(this_place),
+                    metric_note(col5, "League position", ordinal(this_place),
                                 f"Same as last season: {ordinal(last_place)}")
                 else:
-                    col5.metric(f"League position (matchweek {weeks})", ordinal(this_place),
-                                delta=f"{moved:+d} vs {ordinal(last_place)} last season")
+                    col5.metric("League position", ordinal(this_place),
+                                delta=f"{moved:+d} (was {ordinal(last_place)})")
             else:
-                col5.metric(f"League position (matchweek {weeks})", ordinal(this_place))
+                col5.metric("League position", ordinal(this_place))
         else:
             col5.metric("League position", "–")
 
@@ -441,7 +457,7 @@ with tab1:
         table_height = chart_height - 45  # the table card has more fixed parts around it than a chart card, so it is shorter
 
         # First row: points and position as charts, and the league table beside them
-        left, middle, right = st.columns(3)
+        left, middle, right = st.columns([1, 1, 1.4])
         with left, card("Cumulative points by games played"):
             show_lines(chart, "Games played", "Points", height=chart_height, zero=True)
         with middle, card("League position by matchweek"):
@@ -460,7 +476,7 @@ with tab1:
 
         # Second row: the same table last season, and the matches behind the numbers
         show = ["Game", "Date", "Opponent", "Venue", "Result", "GF", "GA"]
-        left, middle, right = st.columns(3)
+        left, middle, right = st.columns([1, 1, 1.4])
         with left, card("Same matchweek last season"):
             if positions is None:
                 st.info("No matchweek has been fully played yet this season.")
@@ -490,7 +506,7 @@ with tab1:
                     "in hand, so this season's table counts every match played so far."
                 )
 
-with tab2:
+if page == "Match Stats":
     tab_header("Match Stats", "Shots, shots on target and shooting accuracy, match by match, "
                "this season against last season.")
 
@@ -548,7 +564,7 @@ with tab2:
         with right, card(f"Last season's first {n_matches} matches"):
             show_table(last_same_point[table_cols], height=300)
 
-with tab3:
+if page == "Efficiency Stats":
     tab_header("Efficiency Stats", "How efficiently the team scores and defends: per-game numbers, recent form, "
                "and the home and away split.")
 
@@ -637,7 +653,7 @@ with tab3:
                    "one-off results; the line starts once there are enough matches to fill the window. "
                    f"Last season covers its first {eff_n} matches, the same number played so far this season.")
 
-with tab4:
+if page == "Opponent Analysis":
     tab_header("Opponent Analysis", "Pick any La Liga team to see where it stands, how the two teams have done "
                "against each other, and how the opponent has been playing lately.")
 
@@ -708,7 +724,7 @@ with tab4:
             "teams have not met (a promoted team, or a match not yet played)."
         )
 
-with tab5:
+if page == "Player Stats":
     tab_header("Player Stats", "Who is scoring, creating and playing the minutes. Player numbers cover La Liga only.")
 
     minutes_options = {"All players": 0, "90+ minutes": 90, "450+ minutes": 450, "900+ minutes": 900}
@@ -772,7 +788,7 @@ with tab5:
                    "with a lot of minutes, so use the filter above. Last season's columns are full-season totals.")
 
 
-with tab6:
+if page == "Tactics":
     tab_header("Tactics", "How much of the ball Real Madrid have, how possession relates to results, "
                "and how the team does with each formation.")
 
@@ -891,7 +907,7 @@ with tab6:
             "has many more matches than the first few, so its percentages are steadier."
         )
 
-with tab7:
+if page == "Champions League":
     tab_header("Champions League", "Real Madrid's Champions League games only: results, goals and the games "
                "still to come. These matches also count in the other tabs.")
     this_cl = played_games(this_sched)
@@ -957,7 +973,7 @@ with tab7:
                                 f"Same as last season: {ordinal(last_place)}")
                 else:
                     col6.metric("League phase position", ordinal(this_place),
-                                delta=f"{moved:+d} vs {ordinal(last_place)} last season")
+                                delta=f"{moved:+d} (was {ordinal(last_place)})")
 
         # The full table (all 36 teams) next to Real Madrid's place after each matchweek
         if cl_weeks is not None:
@@ -969,7 +985,7 @@ with tab7:
                 "This season": this_cl_places.set_index("Wk")["Position"],
                 "Last season": last_cl_shown.set_index("Wk")["Position"],
             }).sort_index()
-            left, right = st.columns([3, 2])
+            left, right = st.columns([5, 3])
             with left, card(f"League phase table after matchweek {cl_weeks}"):
                 show_table(cl_league_table(this_cl_fixtures, cl_weeks), team=TEAM, height=fit_height(10))
             with right, card("Real Madrid's place in the table by matchweek"):
@@ -1014,7 +1030,7 @@ with tab7:
             "round of 16, 9th to 24th play the knockout play-offs and the rest are out."
         )
 
-with tab8:
+if page == "Analysis":
     tab_header("Analysis", "What the numbers mean: where the season is heading and why. Everything here is "
                "worked out from the games played so far, so read it as an estimate, not a forecast.")
     analysis_this = prepare_league_games(this_sched)
@@ -1105,7 +1121,7 @@ with tab8:
                                    prepare_shooting(last_shoot, trend_league_only))
 
         left, right = st.columns([3, 2])
-        with left, card("Match by match: dots are single matches, the blue line is the recent average"):
+        with left, card("Match by match: dots are single matches, the gold line is the recent average"):
             metric_choice = st.selectbox("Metric", [m[0] for m in TREND_METRICS], key="analysis_metric",
                                          label_visibility="collapsed")
             _, column, _, decimals, _ = next(m for m in TREND_METRICS if m[0] == metric_choice)
