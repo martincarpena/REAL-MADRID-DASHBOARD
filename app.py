@@ -22,7 +22,30 @@ from players import (
     squad_table,
     top_player,
 )
-from charts import leaders_bar_chart, line_chart, result_bars_chart
+from analysis import (
+    CORRELATION_PREDICTORS,
+    OUTCOMES,
+    SEASON_GAMES,
+    TREND_METRICS,
+    correlations,
+    describe_correlation,
+    equivalent_position,
+    key_findings,
+    match_table,
+    metric_series,
+    project_season,
+    projection_path,
+    trend_rows,
+)
+from charts import (
+    correlation_chart,
+    leaders_bar_chart,
+    line_chart,
+    projection_chart,
+    result_bars_chart,
+    scatter_chart,
+    trend_chart,
+)
 from champions import (
     clean_fixtures as clean_cl_fixtures,
     league_table as cl_league_table,
@@ -32,7 +55,7 @@ from champions import (
     team_weeks_played,
     upcoming_games,
 )
-from styles import CSS, footer_html, hero_html, logo_data_uri, summary_html, tab_band_html
+from styles import CSS, footer_html, hero_html, logo_data_uri, summary_html, tab_band_html, trend_table_html
 from tables import fit_height, style_table
 from tactics import (
     clean_schedule,
@@ -318,9 +341,9 @@ if this_fixtures["Played"].any():
         unsafe_allow_html=True,
     )
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(
     ["Season Dashboard", "Match Stats", "Efficiency Stats", "Opponent Analysis", "Player Stats", "Tactics",
-     "Champions League"]
+     "Champions League", "Analysis"]
 )
 
 with tab1:
@@ -990,6 +1013,185 @@ with tab7:
             "are not applied, so teams still level are listed alphabetically. The top 8 go straight to the "
             "round of 16, 9th to 24th play the knockout play-offs and the rest are out."
         )
+
+with tab8:
+    tab_header("Analysis", "What the numbers mean: where the season is heading and why. Everything here is "
+               "worked out from the games played so far, so read it as an estimate, not a forecast.")
+    analysis_this = prepare_league_games(this_sched)
+    analysis_last = prepare_league_games(last_sched)
+    games_played = len(analysis_this)
+
+    # An empty box placed here, at the top. The findings are written into it at the
+    # very end of the tab, once every section below has worked out its numbers.
+    findings_slot = st.container()
+
+    if games_played == 0:
+        st.info("No La Liga games played yet this season, so there is nothing to analyse.")
+    else:
+        # ---- Season projection (La Liga) ----
+        info = project_season(analysis_this["Points"], analysis_last["Points"])
+        last_same_points = int(analysis_last[analysis_last["Game"] <= games_played]["Points"].sum())
+
+        # Where a points total would have finished in last season's final table
+        # (without Real Madrid, so it is a comparison with the other 19 teams)
+        last_final = league_table(last_fixtures, int(last_fixtures["Wk"].max()))
+        ladder = last_final[last_final["Team"] != TEAM]["Pts"]
+        place_expected = equivalent_position(info["expected"], ladder)
+        place_best = equivalent_position(info["high"], ladder)
+        place_worst = equivalent_position(info["low"], ladder)
+
+        col1, col2, col3, col4 = st.columns(4)
+        metric_note(col1, "Projected final points", f"{round(info['expected'])}",
+                    f"Likely range: {round(info['low'])} to {round(info['high'])}")
+        col2.metric(f"Points after {games_played} games", int(info["current"]),
+                    delta=int(info["current"]) - last_same_points)
+        col3.metric("Points per game", fmt(info["pace_now"], 2),
+                    delta=change(info["pace_now"], last_same_points / games_played, 2))
+        if place_best == place_worst:
+            finish_note = "Same across the likely range"
+        else:
+            finish_note = f"Range: {ordinal(place_best)} to {ordinal(place_worst)}"
+        metric_note(col4, "Would have finished (last season's table)", ordinal(place_expected), finish_note)
+
+        # The chart: the running points total, this season, last season and the projection
+        def running_total(games):
+            start = pd.DataFrame({"Game": [0], "Points": [0]})
+            return pd.concat([start, pd.DataFrame({"Game": games["Game"],
+                                                   "Points": games["Cumulative Points"]})], ignore_index=True)
+
+        left, right = st.columns([2, 1])
+        with left, card("Where the season is heading: points by games played"):
+            try:
+                chart = projection_chart(running_total(analysis_this), running_total(analysis_last),
+                                         projection_path(info), height=380)
+                if chart is None:
+                    raise ValueError("no chart")
+                show_chart(chart)
+            except Exception:
+                st.line_chart(running_total(analysis_this).set_index("Game")["Points"])
+        with right, card("How this projection works"):
+            st.markdown(
+                f"**Expected points** = points so far + games left × a blended pace.\n\n"
+                f"- This season's pace: **{info['pace_now']:.2f}** points per game\n"
+                f"- Last season's pace in these same remaining games: **{info['pace_last_rest']:.2f}**\n"
+                f"- Weight on this season's pace: **{info['weight']:.0%}** (games played ÷ 38). "
+                f"It grows as the season goes on.\n"
+                f"- Blended pace: **{info['pace']:.2f}**, so about **{round(info['expected'])}** points.\n\n"
+                f"**Range** = expected ± one typical swing (**{info['swing'] * (info['left'] ** 0.5):.0f}** points). "
+                f"About two seasons in three would end inside it, if every match were independent.\n\n"
+                f"**Finish** compares the projected points with last season's final table, without "
+                f"Real Madrid. It shows where this total would have finished last year, not where "
+                f"it will finish this year."
+            )
+
+        st.caption(f"Based on {games_played} of {SEASON_GAMES} La Liga games. A projection this early moves a "
+                   "lot with every result. It ignores the opponents still to come, injuries and transfers.")
+
+        # ---- Trends and form: is the team getting better or worse? ----
+        st.markdown(
+            '<div class="tab-band"><h2>Trends and form</h2>'
+            '<p>Is the team improving? The last few matches against the ones before them.</p></div>',
+            unsafe_allow_html=True,
+        )
+        scope_col, window_col = st.columns(2)
+        trend_scope = scope_col.radio("Competitions", ["All competitions", "La Liga only"],
+                                      horizontal=True, key="analysis_scope")
+        trend_window = window_col.slider("Matches in the average", 2, 10, 5, key="analysis_window")
+        trend_league_only = trend_scope == "La Liga only"
+
+        this_matches = match_table(clean_schedule(this_sched, trend_league_only),
+                                   prepare_shooting(this_shoot, trend_league_only))
+        last_matches = match_table(clean_schedule(last_sched, trend_league_only),
+                                   prepare_shooting(last_shoot, trend_league_only))
+
+        left, right = st.columns([3, 2])
+        with left, card("Match by match: dots are single matches, the blue line is the recent average"):
+            metric_choice = st.selectbox("Metric", [m[0] for m in TREND_METRICS], key="analysis_metric",
+                                         label_visibility="collapsed")
+            _, column, _, decimals, _ = next(m for m in TREND_METRICS if m[0] == metric_choice)
+            if len(this_matches) < trend_window:
+                st.info(f"Only {len(this_matches)} matches played so far, so there is nothing to show for a "
+                        f"{trend_window}-match average yet. Pick a smaller number.")
+            else:
+                this_series = metric_series(this_matches, column, trend_window)
+                last_series = metric_series(last_matches[last_matches["Game"] <= len(this_matches)],
+                                            column, trend_window)
+                try:
+                    chart = trend_chart(this_series, last_series, metric_choice, trend_window,
+                                        height=300, decimals=decimals, zero=column != "Poss")
+                    if chart is None:
+                        raise ValueError("no chart")
+                    show_chart(chart)
+                except Exception:
+                    st.line_chart(this_series.set_index("Game")["Value"])
+        with right, card(f"Trend check: last {trend_window} matches against the games before"):
+            st.markdown(trend_table_html(trend_rows(this_matches, trend_window)), unsafe_allow_html=True)
+            st.caption("Green means better, red means worse, whichever way the number moves (fewer goals "
+                       "conceded is better). A change only counts if it is bigger than the usual "
+                       "match-to-match swings, so with few games most things read as Steady.")
+        st.caption("Grey dashed line: last season's average over the same number of matches. Shots come from "
+                   "the shooting table, so a match without shooting data is left out of the shots lines.")
+
+        # ---- Correlations: which numbers go with winning? ----
+        st.markdown(
+            '<div class="tab-band"><h2>What goes with winning</h2>'
+            '<p>Which numbers move together with the result, over this season and last season combined.</p></div>',
+            unsafe_allow_html=True,
+        )
+        outcome_label = st.radio("Compare each number with", [o[0] for o in OUTCOMES],
+                                 horizontal=True, key="analysis_outcome")
+        outcome_column = dict(OUTCOMES)[outcome_label]
+
+        # Both seasons together give more matches, so the pattern is less of a fluke.
+        # The competitions filter above (All competitions or La Liga only) applies here too.
+        both_seasons = pd.concat([this_matches.assign(Season="This season"),
+                                  last_matches.assign(Season="Last season")], ignore_index=True)
+        found = correlations(both_seasons, outcome_column)
+
+        if found.empty:
+            st.info("Not enough matches with shots and possession data yet to look for patterns.")
+        else:
+            left, right = st.columns([2, 3])
+            with left, card(f"How closely each number goes with {outcome_label.lower()}"):
+                try:
+                    chart = correlation_chart(found, height=300)
+                    if chart is None:
+                        raise ValueError("no chart")
+                    show_chart(chart)
+                except Exception:
+                    st.dataframe(found[["Metric", "r", "n", "Kind"]], hide_index=True)
+            with right, card(f"A closer look: one dot per match, against {outcome_label.lower()}"):
+                scatter_options = [m for m in CORRELATION_PREDICTORS if m[0] != "Home match"]
+                scatter_label = st.selectbox("Number", [m[0] for m in scatter_options],
+                                             key="analysis_scatter", label_visibility="collapsed")
+                scatter_column = dict(scatter_options)[scatter_label]
+                dots = both_seasons[[scatter_column, outcome_column, "Result", "Opponent", "Season"]].dropna(
+                    subset=[scatter_column, outcome_column]
+                ).rename(columns={scatter_column: "X", outcome_column: "Y"})
+                try:
+                    chart = scatter_chart(dots, scatter_label, outcome_label, height=270)
+                    if chart is None:
+                        raise ValueError("no chart")
+                    show_chart(chart)
+                except Exception:
+                    st.scatter_chart(dots, x="X", y="Y")
+
+            with card("In plain English"):
+                st.markdown("\n".join(f"- {describe_correlation(row, outcome_label)}"
+                                      for _, row in found.iterrows()))
+            st.caption("Correlation shows which numbers move together, not what causes what. For example, a team "
+                       "that is winning often gives up the ball, so possession can mislead. The grey band in the "
+                       "bar chart is the zone where a pattern could easily be luck for this many matches. Home "
+                       "matches are scored 1 and away matches 0.")
+
+        # ---- Key findings: written into the box at the top of the tab ----
+        with findings_slot, card("Key findings"):
+            st.markdown("\n".join(f"- {line}" for line in key_findings(
+                info, last_same_points, trend_rows(this_matches, trend_window), trend_window,
+                found, outcome_label,
+                f"Last season that total would have finished {ordinal(place_expected)}.")))
+            st.caption("These sentences update with the filters further down (competitions, matches in the "
+                       "average and the comparison). With few matches, treat every line as a first impression.")
 
 # ---- Footer: where the data comes from ----
 st.markdown(

@@ -11,6 +11,7 @@ A Streamlit dashboard that compares Real Madrid's current La Liga season with th
 - **Player Stats:** top scorer, most assists, most shots and most minutes (each next to last season's leader), a leaders bar chart for any statistic, and a full squad table with a minutes filter and last season's totals. You can switch the whole tab between this season and last season.
 - **Tactics:** possession (average, highest, lowest) compared with last season, a rolling possession chart, the record in matches with little, medium and a lot of possession, and the record with each of Real Madrid's formations and against each opponent formation.
 - **Champions League:** only Real Madrid's Champions League games: record, points, goals for and against and average possession compared with last season at the same point, charts of points and goals match by match, this season's games (including the ones still to play) and last season's whole run. It also shows the full 36-team league-phase table with Real Madrid highlighted and its place by matchweek against last season. Real Madrid's own games also count in the other tabs.
+- **Analysis:** a key-findings summary in plain English, a season projection (a simple pace estimate with a likely range, and where that total would have finished last season), trend and form checks for points, goals, shots and possession, and a look at which numbers go with winning (correlations, with a warning that correlation is not causation). Every part says how few matches it is based on.
 
 The charts are interactive: point at a chart and a line follows the mouse with the numbers for both seasons, bars light up in gold, and clicking a season in a chart's legend shows only that season. Each tab fits a lot on one screen, with charts and tables laid out side by side in cards. A footer shows where the data comes from and when this season's data was last downloaded.
 
@@ -54,6 +55,7 @@ The very first run downloads ten pages from FBref (several minutes; Chrome windo
 | `opponents.py` | The maths behind the Opponent Analysis tab: team results, head to head, recent form, next opponent |
 | `players.py` | The maths behind the Player Stats tab: cleaning the squad table, leaderboards, this season vs last season |
 | `tactics.py` | The maths behind the Tactics tab: possession summaries, possession bands, records by formation |
+| `analysis.py` | The maths behind the Analysis tab: the season projection and its range, the trend checks, the correlations and the plain-English key findings |
 | `champions.py` | The maths behind the Champions League tab: picks out Real Madrid's Champions League games and works out the record, points, goals and possession, and builds the 36-team league-phase table and Real Madrid's place in it |
 | `charts.py` | The chart designs (Altair): the season-against-season line charts, the leaders bar chart and the possession bars, with their hover and click effects |
 | `tables.py` | How the tables look: clean numbers, dashes for empty cells, coloured W/D/L results and the highlighted Real Madrid row in the league tables |
