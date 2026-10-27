@@ -4,7 +4,7 @@ Streamlit draws a table (a "dataframe") from a pandas table. Wrapping the pandas
 table in a "Styler" lets us control how single cells look:
 
   - numbers print cleanly (2, not 2.000000), and an empty cell shows a dash
-  - in a league table, the team's own row is tinted blue and bold
+  - in a league table, the team's own row is tinted gold and bold
   - the W, D and L in a Result column are coloured like the circles under the banner
 
 There is no Streamlit in this file on purpose. It only prepares the tables.
@@ -14,12 +14,12 @@ import pandas as pd
 
 # The look of one Result cell: a soft background with darker text of the same colour
 RESULT_STYLES = {
-    "W": "background-color: #DDF3E4; color: #17653A; font-weight: 700",
-    "D": "background-color: #E8ECF1; color: #4B5563; font-weight: 700",
-    "L": "background-color: #FADBD8; color: #9B2C20; font-weight: 700",
+    "W": "background-color: #173A2B; color: #6FE0A8; font-weight: 700",
+    "D": "background-color: #2B303A; color: #B4BBC8; font-weight: 700",
+    "L": "background-color: #412522; color: #FF8F85; font-weight: 700",
 }
 
-TEAM_ROW = "background-color: #DCEBFA; font-weight: 700"   # the team's own row
+TEAM_ROW = "background-color: #3A3220; color: #F0D27A; font-weight: 700"   # the team's own row
 EMPTY = "–"                                                # shown instead of a blank
 
 # Streamlit draws one table row about this tall (the header is one more row)
@@ -53,7 +53,7 @@ def _result_style(value):
 
 def _team_row(table, team):
     """A table of CSS, the same shape as `table`, with the team's row (found
-    in the Team column) tinted blue and bold and every other cell empty."""
+    in the Team column) tinted gold and bold and every other cell empty."""
     styles = pd.DataFrame("", index=table.index, columns=table.columns)
     styles.loc[table["Team"] == team, :] = TEAM_ROW
     return styles

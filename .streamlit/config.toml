@@ -1,12 +1,14 @@
 # Colours and font for the whole dashboard. Streamlit reads this file when it
 # starts, so restart `streamlit run app.py` after changing it.
 [theme]
-base = "light"
-# Real Madrid blue: sliders, the selected tab, radio buttons
-primaryColor = "#00529F"
-backgroundColor = "#FFFFFF"
-# A warm off-white for the sidebar and panels
-secondaryBackgroundColor = "#F3F0E8"
-# Deep navy instead of plain black
-textColor = "#0B1F3A"
+base = "dark"
+# Gold: sliders, selected options, the progress bars in tables
+primaryColor = "#D4AF37"
+# The colour of the cards and tables. The page behind them is a little darker
+# (styles.py sets it), so the cards stand out.
+backgroundColor = "#1A1D23"
+# Inputs, dropdowns and table headers sit a shade lighter than the cards
+secondaryBackgroundColor = "#21252C"
+# Warm white instead of pure white
+textColor = "#ECEAE4"
 font = "sans serif"

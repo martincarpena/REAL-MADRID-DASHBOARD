@@ -1,7 +1,7 @@
 """The chart designs for the dashboard.
 
-Every chart in the app is built here, so they all share one look: Real Madrid
-blue for this season, grey for last season, light gridlines, no borders. The
+Every chart in the app is built here, so they all share one look: gold for
+this season, slate grey for last season, faint gridlines, no borders. The
 functions use Altair (installed with Streamlit) and return a chart. They
 return None when Altair is not available, and app.py then falls back to
 Streamlit's plain charts.
@@ -16,14 +16,15 @@ try:
 except Exception:  # without Altair the app shows its plain fallback charts
     alt = None
 
-THIS_COLOR = "#00529F"  # this season: Real Madrid blue
-LAST_COLOR = "#9aa0a6"  # last season: grey
-GOLD = "#C9A227"       # the highlight colour when you point at something
+THIS_COLOR = "#D4AF37"  # this season: gold
+LAST_COLOR = "#7B8798"  # last season: slate grey
+HIGHLIGHT = "#FFF0B3"   # the pale gold a bar turns when you point at it
+PROJECTION = "#ECEAE4"  # the projection: warm white
 SEASONS = ["This season", "Last season"]
 
-INK = "#0B1F3A"    # dark navy for labels that matter
-MUTED = "#6B7280"  # soft grey for axes
-GRID = "#ECE8DD"   # light warm grey for gridlines
+INK = "#ECEAE4"    # warm white for labels that matter
+MUTED = "#9AA1AD"  # soft grey for axes
+GRID = "#2A2F38"   # faint line for gridlines
 
 
 def _season_color():
@@ -43,6 +44,7 @@ def _polish(chart, height, vertical_grid=False):
     instead (for the horizontal bar charts)."""
     chart = (
         chart.properties(height=height, padding={"left": 6, "right": 30, "top": 6, "bottom": 4})
+        .configure(background="transparent")
         .configure_view(strokeWidth=0)
         .configure_axis(
             domain=False,
@@ -61,7 +63,7 @@ def _polish(chart, height, vertical_grid=False):
             labelColor=INK,
             labelFontSize=12,
             symbolType="circle",
-            symbolSize=140,
+            symbolSize=80,
         )
     )
     if vertical_grid:
@@ -126,7 +128,7 @@ def line_chart(wide, x_title, y_title, height=240, y_domain=None, y_values=None,
     faded = alt.condition(season_pick, alt.value(1), alt.value(0.15))
 
     lines = base.mark_line(strokeJoin="round").encode(
-        size=alt.Size("Season:N", scale=alt.Scale(domain=SEASONS, range=[3.5, 2]), legend=None),
+        size=alt.Size("Season:N", scale=alt.Scale(domain=SEASONS, range=[2.5, 1.5]), legend=None),
         strokeDash=alt.StrokeDash(
             "Season:N",
             scale=alt.Scale(domain=SEASONS, range=[[1, 0], [5, 4]]),
@@ -135,7 +137,7 @@ def line_chart(wide, x_title, y_title, height=240, y_domain=None, y_values=None,
         opacity=faded,
     ).add_params(season_pick)
     points = base.mark_point(filled=True).encode(
-        size=alt.condition(hover, alt.value(150), alt.value(44)),
+        size=alt.condition(hover, alt.value(90), alt.value(30)),
         opacity=faded,
     )
 
@@ -152,7 +154,7 @@ def line_chart(wide, x_title, y_title, height=240, y_domain=None, y_values=None,
     numbers = []
     for season, shift in [("This season", -12), ("Last season", 18)]:
         numbers.append(
-            base.mark_text(align="left", dx=10, dy=shift, fontWeight="bold", fontSize=12)
+            base.mark_text(align="left", dx=10, dy=shift, fontWeight="bold", fontSize=11)
             .encode(text=alt.Text("Value:Q", format=f".{decimals}f"))
             .transform_filter(hover)
             .transform_filter(alt.datum.Season == season)
@@ -182,13 +184,13 @@ def leaders_bar_chart(data, label, height=300):
             axis=alt.Axis(tickMinStep=1, format="d"),
         ),
     )
-    # The bar under the cursor turns gold (empty=False: no gold when nothing is hovered)
+    # The bar under the cursor turns pale gold (empty=False: no highlight when nothing is hovered)
     hover = alt.selection_point(fields=["Player"], on="mouseover", clear="mouseout", empty=False)
-    bars = base.mark_bar(cornerRadiusEnd=4, size=18).encode(
-        color=alt.condition(hover, alt.value(GOLD), alt.value(THIS_COLOR)),
+    bars = base.mark_bar(cornerRadiusEnd=2, size=14).encode(
+        color=alt.condition(hover, alt.value(HIGHLIGHT), alt.value(THIS_COLOR)),
         tooltip=[alt.Tooltip("Player:N"), alt.Tooltip("Value:Q", title=label)],
     ).add_params(hover)
-    numbers = base.mark_text(align="left", dx=5, color=INK, fontWeight="bold", fontSize=12).encode(
+    numbers = base.mark_text(align="left", dx=5, color=INK, fontWeight="bold", fontSize=11).encode(
         text=alt.Text("Value:Q", format="d")
     )
     return _polish(bars + numbers, height, vertical_grid=True)
@@ -221,7 +223,7 @@ def result_bars_chart(data, height=240):
     # The bar under the cursor stays bright and the others dim (with nothing
     # hovered, all bars are bright)
     hover = alt.selection_point(fields=["Season", "Result"], on="mouseover", clear="mouseout")
-    bars = base.mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
+    bars = base.mark_bar(cornerRadiusTopLeft=2, cornerRadiusTopRight=2).encode(
         opacity=alt.condition(hover, alt.value(1), alt.value(0.45)),
         tooltip=[
             alt.Tooltip("Season:N"),
@@ -238,7 +240,7 @@ def result_bars_chart(data, height=240):
 
 def projection_chart(actual, last, path, total_games=38, height=360):
     """The season so far and where it is heading: this season's points (solid
-    blue), last season's whole run (grey, dashed) and the projection (gold,
+    gold), last season's whole run (grey, dashed) and the projection (white,
     dashed) with a shaded band for the likely range. `actual` and `last` have
     the columns Game and Points (the running total); `path` has Game, Expected,
     Low and High, from the last game played to the end of the season. Point at a
@@ -261,24 +263,24 @@ def projection_chart(actual, last, path, total_games=38, height=360):
     y = alt.Y("Points:Q", title="Points", scale=alt.Scale(zero=True))
     color = alt.Color(
         "Series:N",
-        scale=alt.Scale(domain=names, range=[THIS_COLOR, LAST_COLOR, GOLD]),
+        scale=alt.Scale(domain=names, range=[THIS_COLOR, LAST_COLOR, PROJECTION]),
         legend=alt.Legend(title=None),
     )
     base = alt.Chart(long).encode(x=x, y=y, color=color)
 
     lines = base.mark_line(strokeJoin="round").encode(
-        size=alt.Size("Series:N", scale=alt.Scale(domain=names, range=[3.5, 2, 3.5]), legend=None),
+        size=alt.Size("Series:N", scale=alt.Scale(domain=names, range=[2.5, 1.5, 2.5]), legend=None),
         strokeDash=alt.StrokeDash(
             "Series:N",
             scale=alt.Scale(domain=names, range=[[1, 0], [5, 4], [7, 4]]),
             legend=None,
         ),
     )
-    dots = base.transform_filter(alt.datum.Series == "This season").mark_point(filled=True, size=46).encode(
+    dots = base.transform_filter(alt.datum.Series == "This season").mark_point(filled=True, size=32).encode(
         tooltip=[alt.Tooltip("Game:Q", title="Games played"), alt.Tooltip("Points:Q")]
     )
     # The likely range: a soft band between the low and high paths
-    band = alt.Chart(path).mark_area(color=GOLD, opacity=0.18).encode(
+    band = alt.Chart(path).mark_area(color=PROJECTION, opacity=0.12).encode(
         x=x, y=alt.Y("Low:Q", title="Points"), y2="High:Q"
     )
     # A faint line marking "now"
@@ -290,18 +292,18 @@ def projection_chart(actual, last, path, total_games=38, height=360):
         + " (" + end["Low"].round().astype(int).astype(str)
         + "-" + end["High"].round().astype(int).astype(str) + ")"
     )
-    label = alt.Chart(end).mark_text(align="right", dx=-4, dy=-16, fontWeight="bold", fontSize=12, color=INK).encode(
+    label = alt.Chart(end).mark_text(align="right", dx=-4, dy=-16, fontWeight="bold", fontSize=11, color=INK).encode(
         x=x, y=alt.Y("Expected:Q", title="Points"), text="Label:N"
     )
     return _polish(band + lines + dots + now + label, height)
 
 
-RESULT_COLORS = {"W": "#2E8B57", "D": "#8A94A6", "L": "#C0392B"}  # the same as the dots under the banner
+RESULT_COLORS = {"W": "#2FA36F", "D": "#6F7886", "L": "#D9473D"}  # the same as the dots under the banner
 
 
 def trend_chart(this, last, label, window, height=340, decimals=1, zero=True):
     """One metric, match by match. Each dot is one match, coloured by its
-    result (point at it to see the opponent). The thick blue line is this
+    result (point at it to see the opponent). The thick gold line is this
     season's average of the last `window` matches, the grey dashed line is last
     season's, and the faint dashed line across is this season's average.
     `this` has the columns Game, Value, Rolling, Opponent and Result; `last` has
@@ -321,7 +323,7 @@ def trend_chart(this, last, label, window, height=340, decimals=1, zero=True):
     def rolling_y(name):
         return alt.Y(f"{name}:Q", title=label, scale=alt.Scale(zero=zero))
 
-    dots = alt.Chart(this).mark_circle(size=110, opacity=0.9).encode(
+    dots = alt.Chart(this).mark_circle(size=70, opacity=0.9).encode(
         x=x,
         y=y,
         color=alt.Color(
@@ -336,10 +338,10 @@ def trend_chart(this, last, label, window, height=340, decimals=1, zero=True):
         ],
     )
     this_line = alt.Chart(this.dropna(subset=["Rolling"])).mark_line(
-        color=THIS_COLOR, strokeWidth=3.5, strokeJoin="round"
+        color=THIS_COLOR, strokeWidth=2.5, strokeJoin="round"
     ).encode(x=x, y=rolling_y("Rolling"))
     last_line = alt.Chart(last.dropna(subset=["Rolling"])).mark_line(
-        color=LAST_COLOR, strokeWidth=2, strokeDash=[5, 4], strokeJoin="round"
+        color=LAST_COLOR, strokeWidth=1.5, strokeDash=[5, 4], strokeJoin="round"
     ).encode(x=x, y=rolling_y("Rolling"))
 
     avg_df = pd.DataFrame({"Average": [average], "Game": [first],
@@ -355,7 +357,7 @@ def trend_chart(this, last, label, window, height=340, decimals=1, zero=True):
 
 def correlation_chart(data, height=260):
     """How closely each number goes with winning, as horizontal bars from -1 to
-    +1. Blue means more of it goes with a better result, red means more of it
+    +1. Gold means more of it goes with a better result, red means more of it
     goes with a worse one, and grey means the link is too small to tell from
     luck (the grey band in the middle is that "could be chance" zone). `data`
     has the columns Metric, r, n, Chance, Clear and Kind, strongest first."""
@@ -387,10 +389,10 @@ def correlation_chart(data, height=260):
         color=MUTED, opacity=0.14
     ).encode(x=axis_x("a:Q"), x2="b:Q")
     zero = alt.Chart(pd.DataFrame({"z": [0]})).mark_rule(color=INK, opacity=0.5).encode(x=axis_x("z:Q"))
-    bars = base.mark_bar(cornerRadiusEnd=4, size=22).encode(
+    bars = base.mark_bar(cornerRadiusEnd=2, size=16).encode(
         color=alt.Color(
             "Kind:N",
-            scale=alt.Scale(domain=kinds, range=[THIS_COLOR, "#C0392B", "#B8BDC6"]),
+            scale=alt.Scale(domain=kinds, range=[THIS_COLOR, "#D9473D", "#5B6573"]),
             legend=alt.Legend(title=None),
         ),
         tooltip=[
@@ -401,10 +403,10 @@ def correlation_chart(data, height=260):
         ],
     )
     right = base.transform_filter(alt.datum.r >= 0).mark_text(
-        align="left", dx=5, color=INK, fontWeight="bold", fontSize=12
+        align="left", dx=5, color=INK, fontWeight="bold", fontSize=11
     ).encode(text=alt.Text("r:Q", format="+.2f"))
     left = base.transform_filter(alt.datum.r < 0).mark_text(
-        align="right", dx=-5, color=INK, fontWeight="bold", fontSize=12
+        align="right", dx=-5, color=INK, fontWeight="bold", fontSize=11
     ).encode(text=alt.Text("r:Q", format="+.2f"))
     return _polish(zone + zero + bars + right + left, height, vertical_grid=True)
 
@@ -420,7 +422,7 @@ def scatter_chart(data, x_label, y_label, height=260):
         x=alt.X("X:Q", title=x_label, scale=alt.Scale(zero=False)),
         y=alt.Y("Y:Q", title=y_label, scale=alt.Scale(zero=False)),
     )
-    dots = base.mark_circle(size=90, opacity=0.8).encode(
+    dots = base.mark_circle(size=55, opacity=0.8).encode(
         color=alt.Color(
             "Result:N",
             scale=alt.Scale(domain=list(RESULT_COLORS), range=list(RESULT_COLORS.values())),
@@ -434,5 +436,5 @@ def scatter_chart(data, x_label, y_label, height=260):
             alt.Tooltip("Y:Q", title=y_label),
         ],
     )
-    trend = base.transform_regression("X", "Y").mark_line(color=INK, strokeWidth=2.5, strokeDash=[6, 3])
+    trend = base.transform_regression("X", "Y").mark_line(color=INK, strokeWidth=1.8, strokeDash=[6, 3])
     return _polish(dots + trend, height)

@@ -13,9 +13,9 @@ A Streamlit dashboard that compares Real Madrid's current La Liga season with th
 - **Champions League:** only Real Madrid's Champions League games: record, points, goals for and against and average possession compared with last season at the same point, charts of points and goals match by match, this season's games (including the ones still to play) and last season's whole run. It also shows the full 36-team league-phase table with Real Madrid highlighted and its place by matchweek against last season. Real Madrid's own games also count in the other tabs.
 - **Analysis:** a key-findings summary in plain English, a season projection (a simple pace estimate with a likely range, and where that total would have finished last season), trend and form checks for points, goals, shots and possession, and a look at which numbers go with winning (correlations, with a warning that correlation is not causation). Every part says how few matches it is based on.
 
-The charts are interactive: point at a chart and a line follows the mouse with the numbers for both seasons, bars light up in gold, and clicking a season in a chart's legend shows only that season. Each tab fits a lot on one screen, with charts and tables laid out side by side in cards. A footer shows where the data comes from and when this season's data was last downloaded.
+The charts are interactive: point at a chart and a line follows the mouse with the numbers for both seasons, bars light up in gold, and clicking a season in a chart's legend shows only that season. The look is dark charcoal with gold accents. You move between the pages with a menu on the left, and each page fits a lot on one screen, with charts and tables laid out side by side in cards. A footer shows where the data comes from and when this season's data was last downloaded.
 
-Under the banner, a row of chips sums up where Real Madrid stand: league position, points, record, goal difference and the last five results as coloured circles (green win, grey draw, red loss).
+The left sidebar also has a club panel that is always in view: league position, points, record, goal difference, the last five results as coloured circles (green win, grey draw, red loss) and the next opponent.
 
 ## Setup (first time)
 
@@ -59,7 +59,7 @@ The very first run downloads ten pages from FBref (several minutes; Chrome windo
 | `champions.py` | The maths behind the Champions League tab: picks out Real Madrid's Champions League games and works out the record, points, goals and possession, and builds the 36-team league-phase table and Real Madrid's place in it |
 | `charts.py` | The chart designs (Altair): the season-against-season line charts, the leaders bar chart and the possession bars, with their hover and click effects |
 | `tables.py` | How the tables look: clean numbers, dashes for empty cells, coloured W/D/L results and the highlighted Real Madrid row in the league tables |
-| `styles.py` | The look of the dashboard: the CSS (colours, banner, cards, tabs, footer) and the HTML for the banner, the chips, the tab titles and the footer |
+| `styles.py` | The look of the dashboard: the CSS (colours, fonts, cards, number tiles, the sidebar menu, footer) and the HTML for the sidebar crest, the club panel, the page titles and the footer |
 | `.streamlit/config.toml` | Streamlit's theme: base colours and font |
 | `check_league_data.py` | Checks the league-wide data against Real Madrid's own page (`python3 check_league_data.py`) |
 | `inspect_page.py` | Prints the tables on any FBref page, to explore a new page before writing code for it |
@@ -67,10 +67,10 @@ The very first run downloads ten pages from FBref (several minutes; Chrome windo
 
 ## Look and feel
 
-- The colours and fonts live in two places: `.streamlit/config.toml` (the base theme) and `styles.py` (gradients, cards, banner). Change a colour once at the top of the CSS in `styles.py` and it changes everywhere. The chart colours are set at the top of `charts.py`.
-- Each chart or main table sits in a "card": a white box with a blue border and a navy title strip. `app.py` makes them with the `card()` helper, and the CSS in `styles.py` finds them by name (`card_1`, `card_2`...). Cards in the same row stretch to the same height.
-- Each tab starts with a slim navy band holding its title and a one-line description.
-- The banner shows the club crest if a file called `logo.svg` sits next to `app.py`. It is not tracked by Git (it is in `.gitignore`), so a fresh clone shows the banner without it. Add your own `logo.svg` to see it.
+- The colours and fonts live in two places: `.streamlit/config.toml` (the base theme) and `styles.py` (cards, sidebar, fonts). Change a colour once at the top of the CSS in `styles.py` and it changes everywhere. The chart colours are set at the top of `charts.py`.
+- Each chart or main table sits in a "card": a dark panel with a thin border and a small title in capitals. `app.py` makes them with the `card()` helper, and the CSS in `styles.py` finds them by name (`card_1`, `card_2`...). Cards in the same row stretch to the same height.
+- Each page starts with its title in a serif font, a one-line description and a thin line with a short gold rule.
+- The sidebar shows the club crest if a file called `logo.svg` sits next to `app.py`. It is not tracked by Git (it is in `.gitignore`), so a fresh clone shows the sidebar without it. Add your own `logo.svg` to see it.
 - Streamlit reads `.streamlit/config.toml` only at startup, so restart `streamlit run app.py` after changing the theme. The CSS in `styles.py` updates when you refresh the page.
 
 ## How league positions are worked out
