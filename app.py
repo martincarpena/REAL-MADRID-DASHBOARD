@@ -123,19 +123,34 @@ def card(title):
             yield
 
 
+def fit_columns(table, config=None):
+    """Column settings that give every number column just enough width for its
+    heading, so a table with many columns fits its card instead of running off
+    the right edge. A column that already has its own setting (a progress bar,
+    say) is left alone. Returns a new dictionary."""
+    config = dict(config or {})
+    for name in table.columns:
+        if name not in config and pd.api.types.is_numeric_dtype(table[name]):
+            # "Position" is shown as the shorter "Pos"
+            label = "Pos" if name == "Position" else None
+            config[name] = st.column_config.Column(label, width=max(46, int(7.5 * len(str(label or name)) + 20)))
+    return config
+
+
 def show_table(table, team=None, **options):
     """A table with clean numbers, dashes for empty cells and the W, D and L in
     its Result column coloured. `team` tints that team's row in a league table.
     If anything about the styling fails, show the plain table."""
     try:
-        st.dataframe(style_table(table, team), hide_index=True, **options)
+        config = fit_columns(table, options.pop("column_config", None))
+        st.dataframe(style_table(table, team), hide_index=True, column_config=config, **options)
     except Exception:
         st.dataframe(table, hide_index=True, **options)
 
 
 def points_bar(label="Points per game"):
     """Column setting that draws points per game as a small bar (0 to 3)."""
-    return st.column_config.ProgressColumn(label, min_value=0, max_value=3, format="%.2f")
+    return st.column_config.ProgressColumn(label, min_value=0, max_value=3, format="%.2f", width=88)
 
 
 def metric_note(column, label, value, note):
@@ -457,7 +472,7 @@ if page == "Season Dashboard":
         table_height = chart_height - 45  # the table card has more fixed parts around it than a chart card, so it is shorter
 
         # First row: points and position as charts, and the league table beside them
-        left, middle, right = st.columns([1, 1, 1.4])
+        left, middle, right = st.columns([1, 1, 1.9])
         with left, card("Cumulative points by games played"):
             show_lines(chart, "Games played", "Points", height=chart_height, zero=True)
         with middle, card("League position by matchweek"):
@@ -467,22 +482,21 @@ if page == "Season Dashboard":
                 wide_positions = positions.pivot(index="Matchweek", columns="Season", values="Position")
                 show_lines(wide_positions, "Matchweek", "League position (1 = top)", height=chart_height,
                            y_domain=[20, 1], y_values=[1, 5, 10, 15, 20])
-        with right, card(f"League table after matchweek {weeks}: this season"):
+        with right, card(f"League table after matchweek {weeks}"):
             if positions is None:
                 st.info("No matchweek has been fully played yet this season.")
             else:
-                show_table(league_table(this_fixtures, weeks)[standing_cols], team=TEAM,
-                           height=table_height)
+                # One card, two tables: pick which season's table to look at
+                table_view = st.radio("Table", ["This season", "Same matchweek last season"], horizontal=True,
+                                      key="dash_table_view", label_visibility="collapsed")
+                shown = this_fixtures if table_view == "This season" else last_fixtures
+                show_table(league_table(shown, weeks)[standing_cols], team=TEAM,
+                           height=table_height - 40)
 
-        # Second row: the same table last season, and the matches behind the numbers
+        # Second row: the matches behind the numbers, this season and last season side by side
         show = ["Game", "Date", "Opponent", "Venue", "Result", "GF", "GA"]
-        left, middle, right = st.columns([1, 1, 1.4])
-        with left, card("Same matchweek last season"):
-            if positions is None:
-                st.info("No matchweek has been fully played yet this season.")
-            else:
-                show_table(league_table(last_fixtures, weeks)[standing_cols], team=TEAM, height=300)
-        with middle, card("Matches this season"):
+        left, right = st.columns(2)
+        with left, card("Matches this season"):
             show_table(this_league[show], height=300)
         with right, card(f"Last season's first {n} matches"):
             show_table(last_same_point[show], height=300)
@@ -631,7 +645,7 @@ if page == "Efficiency Stats":
                          "Games", "Points", "Shots", "Shots on target"]
 
         # Two form charts (pick the metric inside each card) and the home/away table
-        left, middle, right = st.columns(3)
+        left, middle, right = st.columns([1, 1, 1.6])
         for slot, key, start in [(left, "efficiency_metric", 0), (middle, "efficiency_metric_2", 1)]:
             with slot, card(f"Form: average of the last {window} matches"):
                 if eff_n < window:
@@ -647,7 +661,8 @@ if page == "Efficiency Stats":
                     show_lines(form, "Match", form_label, height=280, decimals=2)
         with right, card("Home vs away"):
             st.dataframe(venues[venue_columns], hide_index=True,
-                         column_config={"Points per game": points_bar()}, height=fit_height(len(venues)))
+                         column_config=fit_columns(venues[venue_columns], {"Points per game": points_bar("Pts/game")}),
+                         height=fit_height(len(venues)))
 
         st.caption("Each point on a form chart is the average over the previous matches, which smooths out "
                    "one-off results; the line starts once there are enough matches to fill the window. "
@@ -838,12 +853,12 @@ if page == "Tactics":
             possession_bands(tac_this).assign(Season="This season"),
             possession_bands(tac_other).assign(Season="Last season"),
         ], ignore_index=True)
-        band_columns = ["Season"] + [col for col in bands.columns if col != "Season"]
+        band_columns = ["Season"] + [col for col in bands.columns if col not in ("Season", "Points")]
         chart_height = 250
         table_height = fit_height(len(bands))  # exactly its rows, so there is no empty grid under it
 
         # First row: possession over time, possession by result, and the record by possession
-        left, middle, right = st.columns(3)
+        left, middle, right = st.columns([1, 1, 1.9])
         with left, card(f"Average possession over the last {tactics_window} matches"):
             if tac_n < tactics_window:
                 st.info(f"Only {tac_n} matches played so far, so there is nothing to show for a "
@@ -865,7 +880,7 @@ if page == "Tactics":
             st.dataframe(
                 bands[band_columns],
                 hide_index=True,
-                column_config={"Points per game": points_bar()},
+                column_config=fit_columns(bands[band_columns], {"Points per game": points_bar("Pts/game")}),
                 height=table_height,
             )
 
@@ -888,10 +903,10 @@ if page == "Tactics":
 
         left, right = st.columns(2)
         with left, card("Real Madrid's formations"):
-            st.dataframe(my_formations, hide_index=True, column_config=formation_config,
+            st.dataframe(my_formations, hide_index=True, column_config=fit_columns(my_formations, formation_config),
                          height=formation_height)
         with right, card("Real Madrid against each opponent formation"):
-            st.dataframe(their_formations, hide_index=True, column_config=formation_config,
+            st.dataframe(their_formations, hide_index=True, column_config=fit_columns(their_formations, formation_config),
                          height=formation_height)
 
         tactics_columns = ["Game", "Date", "Comp", "Opponent", "Venue", "Result",
