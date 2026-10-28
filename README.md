@@ -9,6 +9,7 @@ A Streamlit dashboard that compares Real Madrid's current La Liga season with th
 - **Efficiency Stats:** points, goals scored and conceded per game, shots per goal, win percentage, clean sheets and penalties, all compared with last season. It also has a rolling-average form chart (you pick the metric and the number of matches) and a home vs away table.
 - **Opponent Analysis:** pick any La Liga team (it starts on Real Madrid's next match) to see both teams' league positions and recent results, the head-to-head record over last season and this season, the opponent's last five matches, and Real Madrid's results against every team.
 - **Player Stats:** top scorer, most assists, most shots and most minutes (each next to last season's leader), a leaders bar chart for any statistic, and a full squad table with a minutes filter and last season's totals. You can switch the whole tab between this season and last season.
+- **Player Reports:** a full report for each of the 20 players with the most minutes. Click a name in the grid and his report opens: season totals (matches, starts, minutes, goals, assists, shots, cards and more), per-90 numbers, charts of his minutes, goals and assists, shots and running totals through the season, tables by competition and by home and away, and every match with all its statistics. Real Madrid matches only (La Liga, Champions League and cups); his national-team matches are left out.
 - **Tactics:** possession (average, highest, lowest) compared with last season, a rolling possession chart, the record in matches with little, medium and a lot of possession, and the record with each of Real Madrid's formations and against each opponent formation.
 - **Champions League:** only Real Madrid's Champions League games: record, points, goals for and against and average possession compared with last season at the same point, charts of points and goals match by match, this season's games (including the ones still to play) and last season's whole run. It also shows the full 36-team league-phase table with Real Madrid highlighted and its place by matchweek against last season. Real Madrid's own games also count in the other tabs.
 - **Analysis:** a key-findings summary in plain English, a season projection (a simple pace estimate with a likely range, and where that total would have finished last season), trend and form checks for points, goals, shots and possession, and a look at which numbers go with winning (correlations, with a warning that correlation is not causation). Every part says how few matches it is based on.
@@ -42,6 +43,7 @@ The very first run downloads ten pages from FBref (several minutes; Chrome windo
 
 - Click **Refresh this season's data** in the sidebar (opens Chrome five times, about three minutes), or run `python3 data.py` in the terminal.
 - Last season is final, so it is downloaded only once.
+- The Player Reports page has its own data: one match log per player. Run `python3 player_data.py` to download the squad list and the logs of the top 20 players (about six minutes; players already saved are skipped). After new matches, run `python3 player_data.py refresh` to download them again. If FBref blocks it part-way, run the same command later: players refreshed in the last six hours are skipped.
 - Be gentle with FBref. It blocks scripts that download too quickly, so `data.py` waits at least 6 seconds between pages. If you get blocked, wait a while before trying again.
 
 ## Project layout
@@ -54,10 +56,12 @@ The very first run downloads ten pages from FBref (several minutes; Chrome windo
 | `efficiency.py` | The maths behind the Efficiency Stats tab: per-game numbers, rolling averages, home vs away |
 | `opponents.py` | The maths behind the Opponent Analysis tab: team results, head to head, recent form, next opponent |
 | `players.py` | The maths behind the Player Stats tab: cleaning the squad table, leaderboards, this season vs last season |
+| `player_data.py` | Downloads the data for the Player Reports tab: the squad list with a link to each player's page, and each top player's match log. Saved in `data_cache/`; run `python3 player_data.py` (or `python3 player_data.py refresh`) |
+| `player_report.py` | The maths behind the Player Reports tab: keeps a player's Real Madrid matches and works out his totals, per-90 numbers and the splits by competition and by home and away. Run `python3 player_report.py` to print the report of the top player |
 | `tactics.py` | The maths behind the Tactics tab: possession summaries, possession bands, records by formation |
 | `analysis.py` | The maths behind the Analysis tab: the season projection and its range, the trend checks, the correlations and the plain-English key findings |
 | `champions.py` | The maths behind the Champions League tab: picks out Real Madrid's Champions League games and works out the record, points, goals and possession, and builds the 36-team league-phase table and Real Madrid's place in it |
-| `charts.py` | The chart designs (Altair): the season-against-season line charts, the leaders bar chart and the possession bars, with their hover and click effects |
+| `charts.py` | The chart designs (Altair): the season-against-season line charts, the leaders bar chart and the possession bars, the player-report charts (minutes, goals and assists, shots, running totals), with their hover and click effects |
 | `tables.py` | How the tables look: clean numbers, dashes for empty cells, coloured W/D/L results and the highlighted Real Madrid row in the league tables |
 | `styles.py` | The look of the dashboard: the CSS (colours, fonts, cards, number tiles, the sidebar menu, footer) and the HTML for the sidebar crest, the club panel, the page titles and the footer |
 | `.streamlit/config.toml` | Streamlit's theme: base colours and font |
@@ -86,6 +90,13 @@ The very first run downloads ten pages from FBref (several minutes; Chrome windo
 - Last season's columns are full-season totals, not totals at the same point of the season.
 - Per-90 numbers are unreliable for players with few minutes, which is why the squad table has a minutes filter.
 - A player's goals in the shooting table can be lower than the real total, because own goals are counted differently.
+
+## About the player reports
+
+- The reports cover every Real Madrid competition, so a player's numbers are higher than on Player Stats, which counts La Liga only.
+- The 20 players are chosen by their La Liga minutes (the squad table's minutes), so a player with many Champions League minutes can rank a little differently from a ranking over all competitions.
+- A match where a player was on the bench and did not come on counts as "unused substitute", not as a match played.
+- FBref no longer offers advanced statistics (such as expected goals or passing) on these pages, so the reports use the basic ones: minutes, goals, assists, shots, cards, fouls, offsides, crosses, tackles won and interceptions.
 
 ## Troubleshooting
 

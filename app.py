@@ -39,11 +39,15 @@ from analysis import (
 )
 from charts import (
     correlation_chart,
+    goals_assists_chart,
     leaders_bar_chart,
     line_chart,
+    minutes_chart,
     projection_chart,
     result_bars_chart,
+    running_total_chart,
     scatter_chart,
+    shots_chart,
     trend_chart,
 )
 from champions import (
@@ -73,6 +77,16 @@ from opponents import (
     opponents_of,
     results_vs_everyone,
     team_matches,
+)
+from player_data import ROSTER_SIZE, get_player_matches, get_roster, top_players
+from player_report import (
+    by_competition,
+    by_venue,
+    club_matches,
+    per_90,
+    positions_played,
+    running_totals,
+    season_totals,
 )
 
 st.set_page_config(page_title="Real Madrid Dashboard", page_icon="⚽", layout="wide")
@@ -296,8 +310,8 @@ def change(value, last, decimals=2, suffix=""):
 st.markdown(CSS, unsafe_allow_html=True)
 
 # ---- Sidebar: the crest, the page menu, the club panel and the data controls ----
-PAGES = ["Season Dashboard", "Match Stats", "Efficiency Stats", "Opponent Analysis", "Player Stats", "Tactics",
-         "Champions League", "Analysis"]
+PAGES = ["Season Dashboard", "Match Stats", "Efficiency Stats", "Opponent Analysis", "Player Stats",
+         "Player Reports", "Tactics", "Champions League", "Analysis"]
 
 with st.sidebar:
     st.markdown(brand_html(logo_data_uri(), "Analytics"), unsafe_allow_html=True)
@@ -801,6 +815,161 @@ if page == "Player Stats":
             show_table(squad[squad_columns], height=340)
         st.caption("Click a column heading to sort by it. Per-90 numbers are only reliable for players "
                    "with a lot of minutes, so use the filter above. Last season's columns are full-season totals.")
+
+
+if page == "Player Reports":
+    tab_header("Player Reports", f"A full report for each of the {ROSTER_SIZE} players with the most minutes. "
+               "Click a name to open his report. Real Madrid matches only.")
+
+    try:
+        roster = top_players(get_roster(CURRENT_SEASON))
+    except Exception as error:
+        st.error(f"Could not load the list of players: {error}")
+        st.info("Run `python3 player_data.py` in the terminal to download the player data.")
+        st.stop()
+
+    # The player whose report is open. Clicking a name button runs choose_player
+    # first, which remembers the name in st.session_state between clicks.
+    if st.session_state.get("report_player") not in set(roster["Player"]):
+        st.session_state["report_player"] = roster.iloc[0]["Player"]
+    chosen = st.session_state["report_player"]
+
+    def choose_player(name):
+        st.session_state["report_player"] = name
+
+    def wide_button(label, **options):
+        """A button as wide as its column (the option has been renamed in newer Streamlit)."""
+        try:
+            return st.button(label, width="stretch", **options)
+        except TypeError:
+            return st.button(label, use_container_width=True, **options)
+
+    def player_age(value):
+        """FBref writes an age as '27-123' (years-days). Keep the years."""
+        return str(value).split("-")[0].split(".")[0] if pd.notna(value) else ""
+
+    def draw_chart(builder, *arguments):
+        """Draws a chart from charts.py. If it cannot be drawn, say why."""
+        try:
+            chart = builder(*arguments)
+            if chart is None:
+                raise ValueError("there is nothing to draw yet")
+            show_chart(chart)
+        except Exception as error:
+            st.warning(f"Could not draw this chart: {error}")
+
+    with card("Choose a player"):
+        # The box is named "players" so that styles.py can give the open player's button a gold edge.
+        with _box("players"):
+            for start in range(0, len(roster), 5):
+                for slot, (_, person) in zip(st.columns(5), roster.iloc[start:start + 5].iterrows()):
+                    with slot:
+                        wide_button(person["Player"], key=f"pick_{person['Player']}", on_click=choose_player,
+                                    args=(person["Player"],),
+                                    type="primary" if person["Player"] == chosen else "secondary")
+                        st.caption(" · ".join(part for part in [str(person["Pos"]) if pd.notna(person["Pos"]) else "",
+                                                                player_age(person["Age"]) + " yrs" if pd.notna(person["Age"]) else ""] if part))
+
+    person = roster[roster["Player"] == chosen].iloc[0]
+    try:
+        with st.spinner(f"Loading {chosen}'s match log. The first time, this downloads one page from FBref..."):
+            log = get_player_matches(person["Link"], CURRENT_SEASON)
+    except Exception as error:
+        st.error(f"Could not load {chosen}'s match log: {error}")
+        st.info("Run `python3 player_data.py` in the terminal to see the full error and to download the data.")
+        st.stop()
+
+    matches = club_matches(log)
+    st.subheader(chosen)
+    details = [str(person["Pos"]) if pd.notna(person["Pos"]) else "",
+               f"{player_age(person['Age'])} years old" if pd.notna(person["Age"]) else "",
+               f"Real Madrid, {CURRENT_SEASON}"]
+    st.caption(" · ".join(part for part in details if part))
+
+    if not matches["Played"].any():
+        st.info(f"{chosen} has not played for Real Madrid yet this season.")
+    else:
+        totals = season_totals(matches)
+        with card("Season so far"):
+            for labels in [
+                [("Matches", "Matches played"), ("Starts", "Starts"), ("Minutes", "Minutes"),
+                 ("Goals", "Goals"), ("Assists", "Assists"), ("G + A", "Goals + assists")],
+                [("Shots", "Shots"), ("On target", "Shots on target"), ("Yellow cards", "Yellow cards"),
+                 ("Red cards", "Red cards"), ("Fouls drawn", "Fouls drawn"), ("Tackles won", "Tackles won")],
+            ]:
+                for slot, (label, key) in zip(st.columns(6), labels):
+                    slot.metric(label, f"{totals[key]:,}")
+            if totals["Unused substitute"]:
+                st.caption(f"Also on the bench without playing in {totals['Unused substitute']} matches.")
+
+        rates = per_90(matches)
+        with card("Per 90 minutes"):
+            for slot, (label, key) in zip(st.columns(6), [
+                ("Goals / 90", "Goals"), ("Assists / 90", "Assists"), ("Shots / 90", "Shots"),
+                ("On target / 90", "Shots on target"), ("Fouls drawn / 90", "Fouls drawn"),
+                ("Tackles won / 90", "Tackles won"),
+            ]):
+                slot.metric(label, f"{rates[key]:.2f}")
+
+        left, right = st.columns(2)
+        with left:
+            with card("Minutes in each match"):
+                draw_chart(minutes_chart, matches)
+        with right:
+            with card("Goals and assists in each match"):
+                draw_chart(goals_assists_chart, matches)
+
+        left, right = st.columns(2)
+        with left:
+            with card("Shots in each match"):
+                draw_chart(shots_chart, matches)
+        with right:
+            with card("Goals and assists through the season"):
+                draw_chart(running_total_chart, running_totals(matches))
+
+        with card("By competition"):
+            competitions = by_competition(matches).rename(columns={"Comp": "Competition", "Matches": "MP"})
+            show_table(competitions, height=fit_height(len(competitions)))
+        with card("Home and away"):
+            venues = by_venue(matches).rename(columns={"Matches": "MP"})
+            show_table(venues, height=fit_height(len(venues)))
+
+        positions = positions_played(matches)
+        st.caption("Positions played: " + ", ".join(f"{row['Position']} ({row['Matches']})"
+                                                    for _, row in positions.iterrows()))
+
+        # ---- Every match, newest first ----
+        def score_text(row):
+            return f"{int(row['GF'])}\u2013{int(row['GA'])}" if pd.notna(row["GF"]) else "\u2013"
+
+        every_match = pd.DataFrame({
+            "Date": matches["Date"].dt.strftime("%Y-%m-%d"),
+            "Competition": matches["Comp"],
+            "Venue": matches["Venue"],
+            "Opponent": matches["Opponent"],
+            "Result": matches["Outcome"],
+            "Score": matches.apply(score_text, axis=1),
+            "Start": matches["Start"],
+            "Pos": matches["Pos"],
+            "Min": matches["Min"].astype(int),
+            "Gls": matches["Gls"].astype(int),
+            "Ast": matches["Ast"].astype(int),
+            "Sh": matches["Sh"].astype(int),
+            "SoT": matches["SoT"].astype(int),
+            "CrdY": matches["CrdY"].astype(int),
+            "CrdR": matches["CrdR"].astype(int),
+            "Fls": matches["Fls"].astype(int),
+            "Fld": matches["Fld"].astype(int),
+            "Off": matches["Off"].astype(int),
+            "Crs": matches["Crs"].astype(int),
+            "TklW": matches["TklW"].astype(int),
+            "Int": matches["Int"].astype(int),
+        }).iloc[::-1]
+        with card("Match by match"):
+            show_table(every_match, height=min(fit_height(len(every_match)), 460))
+        st.caption("The numbers come from FBref's match logs for Real Madrid matches only (La Liga, Champions League "
+                   "and cups); his national-team matches are left out. A bench player who did not come on shows "
+                   "0 minutes. Players are ranked by their La Liga minutes. Click a column heading to sort by it.")
 
 
 if page == "Tactics":

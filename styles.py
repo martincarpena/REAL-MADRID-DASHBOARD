@@ -508,6 +508,16 @@ h1, h2, h3 {
     color: var(--gold-soft);
 }
 
+/* The player picker (the box app.py names "players"): the player whose report is
+   open is the "primary" button, drawn with a gold edge and a soft gold fill. */
+.st-key-players .stButton > button[kind="primary"],
+.st-key-players .stButton > button[data-testid="stBaseButton-primary"] {
+    border-color: var(--gold);
+    background: rgba(212, 175, 55, 0.14);
+    color: var(--gold-soft);
+    font-weight: 700;
+}
+
 /* The "see the matches" boxes, and tables that are not in a card */
 [data-testid="stExpander"] {
     background: var(--surface);
