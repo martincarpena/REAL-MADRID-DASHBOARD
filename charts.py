@@ -438,3 +438,181 @@ def scatter_chart(data, x_label, y_label, height=260):
     )
     trend = base.transform_regression("X", "Y").mark_line(color=INK, strokeWidth=1.8, strokeDash=[6, 3])
     return _polish(dots + trend, height)
+
+
+# ---- The player report charts (the Player Reports page) ----
+# They take the match table from player_report.club_matches(): one row per match,
+# with the columns Played, Started, Min, Gls, Ast, Sh, SoT, Opponent, Comp, Date.
+
+PLAYER_ROLES = ["Started", "Came on"]
+
+
+def _numbered(matches):
+    """The matches he played, oldest first, with a Match number (1, 2, 3...)."""
+    played = matches[matches["Played"]].reset_index(drop=True)
+    return played.assign(Match=range(1, len(played) + 1))
+
+
+def _match_axis(title="Match (oldest to newest)"):
+    return alt.X("Match:O", title=title, axis=alt.Axis(labelAngle=0, labelColor=INK))
+
+
+def _match_tooltip(*extra):
+    return [
+        alt.Tooltip("Match:O"),
+        alt.Tooltip("Opponent:N"),
+        alt.Tooltip("Comp:N", title="Competition"),
+        alt.Tooltip("Date:T", format="%d %b %Y"),
+        *extra,
+    ]
+
+
+def minutes_chart(matches, height=240):
+    """One bar per match he played, as tall as his minutes. Gold when he started,
+    grey when he came on from the bench."""
+    if alt is None:
+        return None
+    data = _numbered(matches)
+    if data.empty:
+        return None
+    data = data.assign(Role=data["Started"].map({True: "Started", False: "Came on"}))
+    top = max(95.0, float(data["Min"].max()) + 5)
+
+    base = alt.Chart(data).encode(
+        x=_match_axis(),
+        y=alt.Y("Min:Q", title="Minutes", scale=alt.Scale(domain=[0, top])),
+        color=alt.Color(
+            "Role:N",
+            scale=alt.Scale(domain=PLAYER_ROLES, range=[THIS_COLOR, LAST_COLOR]),
+            legend=alt.Legend(title=None),
+        ),
+    )
+    hover = alt.selection_point(fields=["Match"], on="mouseover", clear="mouseout")
+    bars = base.mark_bar(cornerRadiusTopLeft=2, cornerRadiusTopRight=2).encode(
+        opacity=alt.condition(hover, alt.value(1), alt.value(0.5)),
+        tooltip=_match_tooltip(alt.Tooltip("Role:N", title="He"), alt.Tooltip("Min:Q", title="Minutes")),
+    ).add_params(hover)
+    # The numbers are drawn from their own chart so that they stay warm white
+    # instead of taking the colour of their bar.
+    numbers = alt.Chart(data).mark_text(dy=-8, color=INK, fontSize=10).encode(
+        x=_match_axis(),
+        y=alt.Y("Min:Q", scale=alt.Scale(domain=[0, top])),
+        text=alt.Text("Min:Q", format="d"),
+    )
+    return _polish(bars + numbers, height)
+
+
+def _two_series(data, first, second):
+    """Turns two columns of a match table into the long form a grouped chart
+    needs: one row per match and per series, with the columns Type and Count."""
+    keep = ["Match", "Opponent", "Comp", "Date"]
+    return pd.concat([
+        data[keep].assign(Type=first[0], Count=data[first[1]]),
+        data[keep].assign(Type=second[0], Count=data[second[1]]),
+    ], ignore_index=True)
+
+
+def goals_assists_chart(matches, height=240):
+    """Goals and assists in each match, stacked into one bar."""
+    if alt is None:
+        return None
+    data = _numbered(matches)
+    if data.empty:
+        return None
+    long = _two_series(data, ("Goals", "Gls"), ("Assists", "Ast"))
+    top = max(2, int((data["Gls"] + data["Ast"]).max()) + 1)
+
+    hover = alt.selection_point(fields=["Match", "Type"], on="mouseover", clear="mouseout")
+    bars = alt.Chart(long).mark_bar(cornerRadiusTopLeft=2, cornerRadiusTopRight=2).encode(
+        x=_match_axis(),
+        y=alt.Y(
+            "Count:Q",
+            title="Goals and assists",
+            scale=alt.Scale(domain=[0, top]),
+            axis=alt.Axis(tickMinStep=1, format="d"),
+        ),
+        color=alt.Color(
+            "Type:N",
+            scale=alt.Scale(domain=["Goals", "Assists"], range=[THIS_COLOR, LAST_COLOR]),
+            legend=alt.Legend(title=None),
+        ),
+        opacity=alt.condition(hover, alt.value(1), alt.value(0.55)),
+        tooltip=_match_tooltip(alt.Tooltip("Type:N"), alt.Tooltip("Count:Q")),
+    ).add_params(hover)
+    return _polish(bars, height)
+
+
+def shots_chart(matches, height=240):
+    """Shots and shots on target in each match, side by side."""
+    if alt is None:
+        return None
+    data = _numbered(matches)
+    if data.empty:
+        return None
+    long = _two_series(data, ("Shots", "Sh"), ("On target", "SoT"))
+    top = max(4, int(data["Sh"].max()) + 1)
+
+    hover = alt.selection_point(fields=["Match", "Type"], on="mouseover", clear="mouseout")
+    bars = alt.Chart(long).mark_bar(cornerRadiusTopLeft=2, cornerRadiusTopRight=2).encode(
+        x=_match_axis(),
+        xOffset=alt.XOffset("Type:N", sort=["Shots", "On target"]),
+        y=alt.Y(
+            "Count:Q",
+            title="Shots",
+            scale=alt.Scale(domain=[0, top]),
+            axis=alt.Axis(tickMinStep=1, format="d"),
+        ),
+        color=alt.Color(
+            "Type:N",
+            scale=alt.Scale(domain=["Shots", "On target"], range=[LAST_COLOR, THIS_COLOR]),
+            legend=alt.Legend(title=None),
+        ),
+        opacity=alt.condition(hover, alt.value(1), alt.value(0.55)),
+        tooltip=_match_tooltip(alt.Tooltip("Type:N"), alt.Tooltip("Count:Q")),
+    ).add_params(hover)
+    return _polish(bars, height)
+
+
+def running_total_chart(running, height=260):
+    """His goals, assists and goals + assists adding up through the season.
+    `running` is player_report.running_totals(): the columns Match, Date,
+    Opponent, Goals, Assists and Goals + assists."""
+    if alt is None or running.empty:
+        return None
+    names = ["Goals", "Assists", "Goals + assists"]
+    long = running.melt(
+        id_vars=["Match", "Date", "Opponent"], value_vars=names, var_name="Series", value_name="Total"
+    )
+    base = alt.Chart(long).encode(
+        x=alt.X("Match:Q", title="Matches played", axis=alt.Axis(tickMinStep=1, format="d")),
+        y=alt.Y(
+            "Total:Q",
+            title="Season total so far",
+            scale=alt.Scale(zero=True),
+            axis=alt.Axis(tickMinStep=1, format="d"),
+        ),
+        color=alt.Color(
+            "Series:N",
+            scale=alt.Scale(domain=names, range=[THIS_COLOR, LAST_COLOR, PROJECTION]),
+            legend=alt.Legend(title=None),
+        ),
+    )
+    # Goals + assists is dashed, so that when it lies exactly on top of the goals
+    # line (a player with no assists) the gold still shows through the gaps.
+    lines = base.mark_line(interpolate="step-after", strokeWidth=2).encode(
+        strokeDash=alt.StrokeDash(
+            "Series:N",
+            scale=alt.Scale(domain=names, range=[[1, 0], [1, 0], [6, 4]]),
+            legend=None,
+        )
+    )
+    dots = base.mark_point(filled=True, size=30).encode(
+        tooltip=[
+            alt.Tooltip("Match:Q"),
+            alt.Tooltip("Opponent:N"),
+            alt.Tooltip("Date:T", format="%d %b %Y"),
+            alt.Tooltip("Series:N"),
+            alt.Tooltip("Total:Q"),
+        ]
+    )
+    return _polish(lines + dots, height)
