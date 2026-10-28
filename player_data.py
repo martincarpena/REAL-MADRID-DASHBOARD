@@ -1,13 +1,21 @@
 """Downloads and saves the data for the Player Reports page.
 
 Like data.py, every download is saved as a CSV file in data_cache/, so a
-player's page is only ever downloaded once. Nothing here uses Streamlit.
+player's page is only downloaded once. Nothing here uses Streamlit.
 
 Run `python3 player_data.py` to download the squad list and then the match
-log of every player in the top ROSTER_SIZE by minutes."""
+log of every player in the top ROSTER_SIZE by minutes. Players already saved
+are skipped.
+
+Run `python3 player_data.py refresh` after new matches have been played: it
+downloads the squad list and every top player's log again. If FBref blocks it
+part-way, run the same command again later; players refreshed in the last few
+hours are skipped, so nothing is downloaded twice."""
 import io
 import os
 import re
+import sys
+import time
 
 import pandas as pd
 
@@ -121,21 +129,32 @@ def get_player_matches(link, season=CURRENT_SEASON, refresh=False):
     return log
 
 
-def is_saved(link, season=CURRENT_SEASON):
+def is_saved(link, season=CURRENT_SEASON, max_age_hours=None):
+    """True if this player's match log is saved. With max_age_hours, it also
+    has to have been saved within that many hours."""
     player_id, _ = _player_id_and_slug(link)
-    return os.path.exists(_cache_path(f"playerlog_{player_id}_{season}"))
+    path = _cache_path(f"playerlog_{player_id}_{season}")
+    if not os.path.exists(path):
+        return False
+    if max_age_hours is None:
+        return True
+    return time.time() - os.path.getmtime(path) < max_age_hours * 3600
 
 
 if __name__ == "__main__":
-    squad = top_players(get_roster())
+    refresh = "refresh" in sys.argv[1:]
+    # When refreshing, a log saved in the last few hours counts as fresh already.
+    fresh_hours = 6 if refresh else None
+
+    squad = top_players(get_roster(refresh=refresh))
     print(f"Top {len(squad)} players by minutes:\n")
     for position, row in squad.iterrows():
         label = f"{position + 1:>2}. {row['Player']} ({int(row['Min'])} min)"
-        if is_saved(row["Link"]):
+        if is_saved(row["Link"], max_age_hours=fresh_hours):
             print(f"{label} - already saved")
             continue
         try:
-            log = get_player_matches(row["Link"])
+            log = get_player_matches(row["Link"], refresh=refresh)
         except Exception as error:
             print(f"{label} - FAILED: {error}")
             print("Stopping. The players saved so far are kept; run this again later.")
