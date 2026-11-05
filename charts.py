@@ -1,7 +1,7 @@
 """The chart designs for the dashboard.
 
-Every chart in the app is built here, so they all share one look: gold for
-this season, slate grey for last season, faint gridlines, no borders. The
+Every chart in the app is built here, so they all share one look: blue for
+this season, grey for last season, faint gridlines, no borders. The
 functions use Altair (installed with Streamlit) and return a chart. They
 return None when Altair is not available, and app.py then falls back to
 Streamlit's plain charts.
@@ -16,35 +16,44 @@ try:
 except Exception:  # without Altair the app shows its plain fallback charts
     alt = None
 
-THIS_COLOR = "#D4AF37"  # this season: gold
-LAST_COLOR = "#7B8798"  # last season: slate grey
-HIGHLIGHT = "#FFF0B3"   # the pale gold a bar turns when you point at it
-PROJECTION = "#ECEAE4"  # the projection: warm white
+THIS_COLOR = "#4C8DFF"  # this season: blue
+LAST_COLOR = "#6B7280"  # last season: grey
+HIGHLIGHT = "#8DB4FF"   # the pale blue a bar turns when you point at it
+PROJECTION = "#EDEEF0"  # the projection: white
 SEASONS = ["This season", "Last season"]
 
-INK = "#ECEAE4"    # warm white for labels that matter
-MUTED = "#9AA1AD"  # soft grey for axes
-GRID = "#2A2F38"   # faint line for gridlines
+# How the legend draws a line: a short, thick stroke. The legend sets this itself
+# (instead of taking the size from the line chart) so it can never shrink to a dot.
+LINE_LEGEND = dict(symbolType="stroke", symbolSize=300, symbolStrokeWidth=2.5)
+
+INK = "#EDEEF0"    # white for labels that matter
+MUTED = "#8B9098"  # grey for axes
+GRID = "#1C1F24"   # very faint line for gridlines
 
 
-def _season_color():
+def _season_color(line=True, legend=True):
     """One colour rule for both seasons, so every chart uses the same colours
-    and the legend is only drawn once, at the top."""
+    and the legend is only drawn once, at the top. line=True draws the legend
+    symbols as short lines (for line charts), line=False as squares (for bars).
+    legend=False gives the same colours without adding to the legend: a layer
+    with its own symbols (dots, numbers) would otherwise change what the legend
+    draws, so only the line layer feeds it."""
     return alt.Color(
         "Season:N",
         scale=alt.Scale(domain=SEASONS, range=[THIS_COLOR, LAST_COLOR]),
-        legend=alt.Legend(title=None),
+        legend=alt.Legend(title=None, **(LINE_LEGEND if line else {})) if legend else None,
     )
 
 
 def _polish(chart, height, vertical_grid=False):
-    """The finishing touches shared by every chart: a set height, no frame
-    around the plot, soft gridlines and quiet axis text. Gridlines run
+    """The finishing touches shared by every chart: a set height (kept low,
+    so charts come out wide and short), no frame around the plot, very soft
+    gridlines and quiet axis text. Gridlines run
     sideways by default; vertical_grid=True gives lines going up and down
     instead (for the horizontal bar charts)."""
     chart = (
-        chart.properties(height=height, padding={"left": 6, "right": 30, "top": 6, "bottom": 4})
-        .configure(background="transparent")
+        chart.properties(height=height, padding={"left": 2, "right": 24, "top": 4, "bottom": 2})
+        .configure(background="transparent", font="Inter, sans-serif")
         .configure_view(strokeWidth=0)
         .configure_axis(
             domain=False,
@@ -52,18 +61,19 @@ def _polish(chart, height, vertical_grid=False):
             gridColor=GRID,
             labelColor=MUTED,
             titleColor=MUTED,
-            labelFontSize=11,
-            titleFontSize=11,
+            labelFontSize=10,
+            titleFontSize=10,
             titleFontWeight="normal",
-            labelPadding=6,
-            titlePadding=10,
+            labelPadding=5,
+            titlePadding=8,
         )
         .configure_legend(
             orient="top",
-            labelColor=INK,
-            labelFontSize=12,
-            symbolType="circle",
-            symbolSize=80,
+            direction="horizontal",
+            labelColor=MUTED,
+            labelFontSize=10,
+            padding=0,
+            offset=4,
         )
     )
     if vertical_grid:
@@ -71,7 +81,7 @@ def _polish(chart, height, vertical_grid=False):
     return chart.configure_axisX(grid=False)
 
 
-def line_chart(wide, x_title, y_title, height=240, y_domain=None, y_values=None, zero=False, decimals=0):
+def line_chart(wide, x_title, y_title, height=220, y_domain=None, y_values=None, zero=False, decimals=0):
     """This season against last season as two lines you can point at.
 
     `wide` has one row per x value (the match or matchweek number) and the two
@@ -114,11 +124,19 @@ def line_chart(wide, x_title, y_title, height=240, y_domain=None, y_values=None,
     hover = alt.selection_point(fields=["X"], nearest=True, on="mouseover", clear="mouseout", empty=False)
     season_pick = alt.selection_point(fields=["Season"], bind="legend")
 
+    # The scale is padded a little so the first and last dots stay off the edges,
+    # which makes the axis want to label numbers beyond the data (-1, 0, 11...).
+    # This expression writes a label only for numbers inside the data.
+    first_x, last_x = int(long["X"].min()), int(long["X"].max())
     x_axis = alt.X(
         "X:Q",
         title=x_title,
-        scale=alt.Scale(padding=12),  # keeps the first and last dots off the edges
-        axis=alt.Axis(tickMinStep=1, format="d"),
+        scale=alt.Scale(padding=12),
+        axis=alt.Axis(
+            tickMinStep=1,
+            format="d",
+            labelExpr=f"datum.value >= {first_x} && datum.value <= {last_x} ? datum.label : ''",
+        ),
     )
     base = alt.Chart(long).encode(
         x=x_axis,
@@ -127,17 +145,23 @@ def line_chart(wide, x_title, y_title, height=240, y_domain=None, y_values=None,
     )
     faded = alt.condition(season_pick, alt.value(1), alt.value(0.15))
 
-    lines = base.mark_line(strokeJoin="round").encode(
-        size=alt.Size("Season:N", scale=alt.Scale(domain=SEASONS, range=[2.5, 1.5]), legend=None),
-        strokeDash=alt.StrokeDash(
-            "Season:N",
-            scale=alt.Scale(domain=SEASONS, range=[[1, 0], [5, 4]]),
-            legend=None,
-        ),
-        opacity=faded,
-    ).add_params(season_pick)
+    # One layer per season, each with its own fixed width and dash. (Setting the width
+    # and dash from the data would also leak into the legend and shrink its symbols.)
+    this_line = (
+        base.transform_filter(alt.datum.Season == "This season")
+        .mark_line(strokeWidth=2, strokeJoin="round")
+        .encode(opacity=faded)
+        .add_params(season_pick)
+    )
+    last_line = (
+        base.transform_filter(alt.datum.Season == "Last season")
+        .mark_line(strokeWidth=1.25, strokeDash=[5, 4], strokeJoin="round")
+        .encode(opacity=faded)
+    )
+    lines = this_line + last_line
     points = base.mark_point(filled=True).encode(
-        size=alt.condition(hover, alt.value(90), alt.value(30)),
+        color=_season_color(legend=False),
+        size=alt.condition(hover, alt.value(70), alt.value(26)),
         opacity=faded,
     )
 
@@ -155,7 +179,7 @@ def line_chart(wide, x_title, y_title, height=240, y_domain=None, y_values=None,
     for season, shift in [("This season", -12), ("Last season", 18)]:
         numbers.append(
             base.mark_text(align="left", dx=10, dy=shift, fontWeight="bold", fontSize=11)
-            .encode(text=alt.Text("Value:Q", format=f".{decimals}f"))
+            .encode(text=alt.Text("Value:Q", format=f".{decimals}f"), color=_season_color(legend=False))
             .transform_filter(hover)
             .transform_filter(alt.datum.Season == season)
         )
@@ -163,7 +187,7 @@ def line_chart(wide, x_title, y_title, height=240, y_domain=None, y_values=None,
     return _polish(guide + lines + points + catcher + numbers[0] + numbers[1], height)
 
 
-def leaders_bar_chart(data, label, height=300):
+def leaders_bar_chart(data, label, height=260):
     """Horizontal bars for the top players in one statistic, longest bar at the
     top, with the number written at the end of each bar. `data` has the columns
     Player and Value."""
@@ -184,9 +208,9 @@ def leaders_bar_chart(data, label, height=300):
             axis=alt.Axis(tickMinStep=1, format="d"),
         ),
     )
-    # The bar under the cursor turns pale gold (empty=False: no highlight when nothing is hovered)
+    # The bar under the cursor turns pale blue (empty=False: no highlight when nothing is hovered)
     hover = alt.selection_point(fields=["Player"], on="mouseover", clear="mouseout", empty=False)
-    bars = base.mark_bar(cornerRadiusEnd=2, size=14).encode(
+    bars = base.mark_bar(cornerRadiusEnd=1, size=12).encode(
         color=alt.condition(hover, alt.value(HIGHLIGHT), alt.value(THIS_COLOR)),
         tooltip=[alt.Tooltip("Player:N"), alt.Tooltip("Value:Q", title=label)],
     ).add_params(hover)
@@ -196,7 +220,7 @@ def leaders_bar_chart(data, label, height=300):
     return _polish(bars + numbers, height, vertical_grid=True)
 
 
-def result_bars_chart(data, height=240):
+def result_bars_chart(data, height=200):
     """Average possession in wins, draws and losses, this season next to last
     season. `data` has the columns Result, Season and Average possession."""
     if alt is None or data.empty:
@@ -218,7 +242,7 @@ def result_bars_chart(data, height=240):
             title="Average possession (%)",
             scale=alt.Scale(domain=[0, upper]),
         ),
-        color=_season_color(),
+        color=_season_color(line=False),
     )
     # The bar under the cursor stays bright and the others dim (with nothing
     # hovered, all bars are bright)
@@ -238,9 +262,9 @@ def result_bars_chart(data, height=240):
     return _polish(bars + numbers, height)
 
 
-def projection_chart(actual, last, path, total_games=38, height=360):
+def projection_chart(actual, last, path, total_games=38, height=300):
     """The season so far and where it is heading: this season's points (solid
-    gold), last season's whole run (grey, dashed) and the projection (white,
+    blue), last season's whole run (grey, dashed) and the projection (white,
     dashed) with a shaded band for the likely range. `actual` and `last` have
     the columns Game and Points (the running total); `path` has Game, Expected,
     Low and High, from the last game played to the end of the season. Point at a
@@ -261,22 +285,21 @@ def projection_chart(actual, last, path, total_games=38, height=360):
         axis=alt.Axis(values=[0, 5, 10, 15, 20, 25, 30, 35, total_games], format="d"),
     )
     y = alt.Y("Points:Q", title="Points", scale=alt.Scale(zero=True))
-    color = alt.Color(
-        "Series:N",
-        scale=alt.Scale(domain=names, range=[THIS_COLOR, LAST_COLOR, PROJECTION]),
-        legend=alt.Legend(title=None),
-    )
+    colors = alt.Scale(domain=names, range=[THIS_COLOR, LAST_COLOR, PROJECTION])
+    color = alt.Color("Series:N", scale=colors, legend=alt.Legend(title=None, **LINE_LEGEND))
     base = alt.Chart(long).encode(x=x, y=y, color=color)
 
-    lines = base.mark_line(strokeJoin="round").encode(
-        size=alt.Size("Series:N", scale=alt.Scale(domain=names, range=[2.5, 1.5, 2.5]), legend=None),
-        strokeDash=alt.StrokeDash(
-            "Series:N",
-            scale=alt.Scale(domain=names, range=[[1, 0], [5, 4], [7, 4]]),
-            legend=None,
-        ),
+    def series_line(name, **style):
+        """One series as its own line layer, with a fixed width and dash."""
+        return base.transform_filter(alt.datum.Series == name).mark_line(strokeJoin="round", **style)
+
+    lines = (
+        series_line("This season", strokeWidth=2.5)
+        + series_line("Last season", strokeWidth=1.5, strokeDash=[5, 4])
+        + series_line("Projection", strokeWidth=2.5, strokeDash=[7, 4])
     )
     dots = base.transform_filter(alt.datum.Series == "This season").mark_point(filled=True, size=32).encode(
+        color=alt.Color("Series:N", scale=colors, legend=None),
         tooltip=[alt.Tooltip("Game:Q", title="Games played"), alt.Tooltip("Points:Q")]
     )
     # The likely range: a soft band between the low and high paths
@@ -298,12 +321,12 @@ def projection_chart(actual, last, path, total_games=38, height=360):
     return _polish(band + lines + dots + now + label, height)
 
 
-RESULT_COLORS = {"W": "#2FA36F", "D": "#6F7886", "L": "#D9473D"}  # the same as the dots under the banner
+RESULT_COLORS = {"W": "#34A874", "D": "#6B7280", "L": "#E5534B"}  # the same as the W/D/L squares in the sidebar
 
 
-def trend_chart(this, last, label, window, height=340, decimals=1, zero=True):
+def trend_chart(this, last, label, window, height=260, decimals=1, zero=True):
     """One metric, match by match. Each dot is one match, coloured by its
-    result (point at it to see the opponent). The thick gold line is this
+    result (point at it to see the opponent). The thick blue line is this
     season's average of the last `window` matches, the grey dashed line is last
     season's, and the faint dashed line across is this season's average.
     `this` has the columns Game, Value, Rolling, Opponent and Result; `last` has
@@ -355,9 +378,9 @@ def trend_chart(this, last, label, window, height=340, decimals=1, zero=True):
     return _polish(avg_rule + avg_text + last_line + this_line + dots, height)
 
 
-def correlation_chart(data, height=260):
+def correlation_chart(data, height=220):
     """How closely each number goes with winning, as horizontal bars from -1 to
-    +1. Gold means more of it goes with a better result, red means more of it
+    +1. Blue means more of it goes with a better result, red means more of it
     goes with a worse one, and grey means the link is too small to tell from
     luck (the grey band in the middle is that "could be chance" zone). `data`
     has the columns Metric, r, n, Chance, Clear and Kind, strongest first."""
@@ -392,7 +415,7 @@ def correlation_chart(data, height=260):
     bars = base.mark_bar(cornerRadiusEnd=2, size=16).encode(
         color=alt.Color(
             "Kind:N",
-            scale=alt.Scale(domain=kinds, range=[THIS_COLOR, "#D9473D", "#5B6573"]),
+            scale=alt.Scale(domain=kinds, range=[THIS_COLOR, "#E5534B", "#4A4F57"]),
             legend=alt.Legend(title=None),
         ),
         tooltip=[
@@ -411,7 +434,7 @@ def correlation_chart(data, height=260):
     return _polish(zone + zero + bars + right + left, height, vertical_grid=True)
 
 
-def scatter_chart(data, x_label, y_label, height=260):
+def scatter_chart(data, x_label, y_label, height=210):
     """One number against the result, one dot per match (coloured by its
     result), with a straight line showing the overall tendency. If the line is
     nearly flat, the number does not tell you much about the result. `data` has
@@ -467,9 +490,9 @@ def _match_tooltip(*extra):
     ]
 
 
-def minutes_chart(matches, height=240):
-    """One bar per match he played, as tall as his minutes. Gold when he started,
-    grey when he came on from the bench."""
+def minutes_chart(matches, height=185):
+    """One bar per match he played, as tall as his minutes. Blue when he started,
+    grey when he came on from the bench. Point at a bar for the minutes."""
     if alt is None:
         return None
     data = _numbered(matches)
@@ -492,14 +515,7 @@ def minutes_chart(matches, height=240):
         opacity=alt.condition(hover, alt.value(1), alt.value(0.5)),
         tooltip=_match_tooltip(alt.Tooltip("Role:N", title="He"), alt.Tooltip("Min:Q", title="Minutes")),
     ).add_params(hover)
-    # The numbers are drawn from their own chart so that they stay warm white
-    # instead of taking the colour of their bar.
-    numbers = alt.Chart(data).mark_text(dy=-8, color=INK, fontSize=10).encode(
-        x=_match_axis(),
-        y=alt.Y("Min:Q", scale=alt.Scale(domain=[0, top])),
-        text=alt.Text("Min:Q", format="d"),
-    )
-    return _polish(bars + numbers, height)
+    return _polish(bars, height)
 
 
 def _two_series(data, first, second):
@@ -512,7 +528,7 @@ def _two_series(data, first, second):
     ], ignore_index=True)
 
 
-def goals_assists_chart(matches, height=240):
+def goals_assists_chart(matches, height=185):
     """Goals and assists in each match, stacked into one bar."""
     if alt is None:
         return None
@@ -542,7 +558,7 @@ def goals_assists_chart(matches, height=240):
     return _polish(bars, height)
 
 
-def shots_chart(matches, height=240):
+def shots_chart(matches, height=185):
     """Shots and shots on target in each match, side by side."""
     if alt is None:
         return None
@@ -573,13 +589,14 @@ def shots_chart(matches, height=240):
     return _polish(bars, height)
 
 
-def running_total_chart(running, height=260):
+def running_total_chart(running, height=185):
     """His goals, assists and goals + assists adding up through the season.
     `running` is player_report.running_totals(): the columns Match, Date,
     Opponent, Goals, Assists and Goals + assists."""
     if alt is None or running.empty:
         return None
     names = ["Goals", "Assists", "Goals + assists"]
+    colors = alt.Scale(domain=names, range=[THIS_COLOR, LAST_COLOR, PROJECTION])
     long = running.melt(
         id_vars=["Match", "Date", "Opponent"], value_vars=names, var_name="Series", value_name="Total"
     )
@@ -591,22 +608,18 @@ def running_total_chart(running, height=260):
             scale=alt.Scale(zero=True),
             axis=alt.Axis(tickMinStep=1, format="d"),
         ),
-        color=alt.Color(
-            "Series:N",
-            scale=alt.Scale(domain=names, range=[THIS_COLOR, LAST_COLOR, PROJECTION]),
-            legend=alt.Legend(title=None),
-        ),
+        color=alt.Color("Series:N", scale=colors, legend=alt.Legend(title=None, **LINE_LEGEND)),
     )
     # Goals + assists is dashed, so that when it lies exactly on top of the goals
-    # line (a player with no assists) the gold still shows through the gaps.
-    lines = base.mark_line(interpolate="step-after", strokeWidth=2).encode(
-        strokeDash=alt.StrokeDash(
-            "Series:N",
-            scale=alt.Scale(domain=names, range=[[1, 0], [1, 0], [6, 4]]),
-            legend=None,
-        )
+    # line (a player with no assists) the blue still shows through the gaps.
+    lines = (
+        base.transform_filter(alt.datum.Series != "Goals + assists")
+        .mark_line(interpolate="step-after", strokeWidth=2)
+        + base.transform_filter(alt.datum.Series == "Goals + assists")
+        .mark_line(interpolate="step-after", strokeWidth=2, strokeDash=[6, 4])
     )
     dots = base.mark_point(filled=True, size=30).encode(
+        color=alt.Color("Series:N", scale=colors, legend=None),
         tooltip=[
             alt.Tooltip("Match:Q"),
             alt.Tooltip("Opponent:N"),
