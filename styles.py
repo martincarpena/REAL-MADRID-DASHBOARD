@@ -1,9 +1,9 @@
-"""Visual styling for the dashboard: the CSS and the page banner.
+"""Visual styling for the dashboard: the CSS and the small pieces of HTML.
 
 Streamlit's config file sets the base colours and font. Anything beyond that
-(gradients, card borders, shadows, the banner) is done with CSS, which is the
-language that styles web pages. app.py sends the CSS to the browser once, at
-the top of the page.
+(thin dividers, flat sections, the sidebar menu, the club panel) is done with
+CSS, which is the language that styles web pages. app.py sends the CSS to the
+browser once, at the top of the page.
 
 There is no Streamlit in this file on purpose. It only builds text.
 """
@@ -11,64 +11,67 @@ There is no Streamlit in this file on purpose. It only builds text.
 import base64
 import os
 
-# The crest image sits next to this file. If it is missing, the banner simply
+# The crest image sits next to this file. If it is missing, the sidebar simply
 # shows without it.
 LOGO_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo.svg")
 
 # CSS "variables": the colours are defined once here, and every rule below
 # uses them with var(--name). To change a colour everywhere, change it once.
-# The look: charcoal and gold. Gold is the accent, Inter is the text font and
-# Playfair Display (a serif) is the title font.
+# The look: near-black with one blue accent. No boxes: sections are separated
+# by thin lines. Inter is the font for everything, and numbers line up.
 CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-    --bg: #121418;
-    --sidebar: #0E1013;
-    --surface: #1A1D23;
-    --surface2: #21252C;
-    --line: #2C313A;
-    --gold: #D4AF37;
-    --gold-soft: #E6C768;
-    --text: #ECEAE4;
-    --muted: #9AA1AD;
+    --bg: #0B0C0E;
+    --sidebar: #08090A;
+    --hover: #14161A;
+    --line: #23262B;
+    --line2: #181A1E;
+    --text: #EDEEF0;
+    --muted: #8B9098;
+    --dim: #5E636B;
+    --accent: #4C8DFF;
+    --accent-soft: #8DB4FF;
+    --win: #34A874;
+    --draw: #6B7280;
+    --loss: #E5534B;
 }
 
-/* A slightly smaller base size makes the whole page denser and calmer.
-   Everything sized in "rem" scales with this. */
+/* A smaller base size makes the whole page denser. Everything sized in "rem"
+   scales with this. */
 html {
-    font-size: 15px;
+    font-size: 14px;
 }
 
-/* The page itself: charcoal, with a very faint warm glow in the top right.
-   The font for all normal text is Inter (clean, made for screens and numbers). */
+/* The page itself: flat near-black. The font for all text is Inter, and
+   "tabular" numbers give every digit the same width, so columns of numbers
+   line up. */
 .stApp {
-    background:
-        radial-gradient(1100px 520px at 88% -8%, rgba(212, 175, 55, 0.05), transparent 62%),
-        var(--bg);
+    background: var(--bg);
     font-family: 'Inter', sans-serif;
+    font-variant-numeric: tabular-nums;
 }
 /* The strip at the very top (with the Deploy button). It is solid and a little
    blurred, so page content scrolling underneath does not show through it. */
 [data-testid="stHeader"] {
-    background: rgba(18, 20, 24, 0.92);
+    background: rgba(11, 12, 14, 0.92);
     backdrop-filter: blur(8px);
 }
 
-/* Use the whole width of the screen, with less empty space around the page */
+/* Use the whole width of the screen, with little empty space around the page */
 .block-container {
-    padding-top: 4.4rem;
-    padding-left: 2rem;
-    padding-right: 2rem;
-    padding-bottom: 2rem;
+    padding-top: 3.4rem;
+    padding-left: 1.6rem;
+    padding-right: 1.6rem;
+    padding-bottom: 1.5rem;
     max-width: 100%;
 }
 
-/* Titles use an elegant serif (Playfair Display). If the font cannot load,
-   the browser falls back to any serif font. */
+/* Titles use the same sans-serif font as everything else */
 h1, h2, h3 {
-    font-family: 'Playfair Display', Georgia, serif !important;
+    font-family: 'Inter', sans-serif !important;
     letter-spacing: 0;
 }
 
@@ -78,22 +81,17 @@ h1, h2, h3 {
     display: flex;
     align-items: center;
     gap: 1.4rem;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 1rem 1.8rem;
+    border-bottom: 1px solid var(--line);
+    padding: 0.6rem 0;
     margin-bottom: 0.8rem;
 }
 .hero img {
-    height: 60px;
+    height: 48px;
     width: auto;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 8px;
-    padding: 5px 8px;
 }
 .hero h1 {
     color: var(--text) !important;
-    font-size: 1.7rem;
+    font-size: 1.4rem;
     font-weight: 600;
     margin: 0;
     padding: 0;
@@ -111,52 +109,51 @@ h1, h2, h3 {
     margin: 0.1rem 0 0.8rem 0;
 }
 .chip {
-    background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 0.25rem 0.7rem;
+    border-radius: 4px;
+    padding: 0.2rem 0.6rem;
     font-size: 0.85rem;
     color: var(--muted);
 }
 .chip b {
     font-weight: 600;
-    color: var(--gold-soft);
+    color: var(--accent-soft);
 }
-/* Last results: a small coloured circle for each win, draw and loss */
+/* Results: a small coloured square for each win, draw and loss */
 .dot {
     display: inline-block;
-    width: 1.3rem;
-    height: 1.3rem;
-    line-height: 1.3rem;
-    margin-left: 0.3rem;
-    border-radius: 50%;
+    width: 1.15rem;
+    height: 1.15rem;
+    line-height: 1.15rem;
+    margin-left: 0.25rem;
+    border-radius: 3px;
     text-align: center;
-    font-size: 0.68rem;
-    font-weight: 600;
+    font-size: 0.62rem;
+    font-weight: 700;
     color: #FFFFFF;
 }
-.dot.W { background: #2A8F63; }
-.dot.D { background: #5F6877; }
-.dot.L { background: #C2423A; }
+.dot.W { background: var(--win); }
+.dot.D { background: var(--draw); }
+.dot.L { background: var(--loss); }
 
-/* Every chart and main table sits in a "card": a dark panel with a thin border
-   and a small title in capitals over a hairline. app.py names the boxes card_1,
-   card_2... and body_1, body_2... and the rules below pick them up by name. */
+/* A section: no box and no border. app.py names the boxes card_1, card_2...
+   and body_1, body_2... and the rules below pick them up by name. What is left
+   of a "card" is a small grey title in capitals over a thin line. */
 [class*="st-key-card_"] {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    overflow: hidden;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
     box-shadow: none;
     gap: 0 !important;
 }
 .card-title {
     color: var(--muted);
-    font-weight: 600;
-    font-size: 0.7rem;
+    font-weight: 500;
+    font-size: 0.68rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    padding: 0.75rem 1rem 0.6rem 1rem;
+    padding: 0.2rem 0 0.45rem 0;
     border-bottom: 1px solid var(--line);
 }
 
@@ -173,38 +170,32 @@ h1, h2, h3 {
 }
 
 [class*="st-key-body_"] {
-    padding: 0.7rem 0.8rem 0.4rem 0.8rem;
+    padding: 0.5rem 0 0.2rem 0;
 }
-/* A table inside a card does not need a border of its own */
+/* A table inside a section does not need a border of its own */
 [class*="st-key-body_"] [data-testid="stDataFrame"] {
     border: none;
     box-shadow: none;
     border-radius: 0;
 }
 
-/* The title of each page: plain serif text over a thin line, with a short gold
-   rule at the left end of the line. */
+/* The title of each page: the name and a grey line of text on the same row,
+   over one thin line. */
 .tab-band {
-    position: relative;
-    padding: 0 0 0.75rem 0;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.3rem 1rem;
+    padding: 0 0 0.6rem 0;
     border-bottom: 1px solid var(--line);
-    margin-bottom: 0.4rem;
-}
-.tab-band::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    bottom: -1px;
-    width: 64px;
-    height: 2px;
-    background: var(--gold);
+    margin-bottom: 0.3rem;
 }
 .tab-band h2 {
-    font-family: 'Playfair Display', Georgia, serif;
+    font-family: 'Inter', sans-serif;
     color: var(--text) !important;
-    font-size: 1.6rem;
+    font-size: 1.45rem;
     font-weight: 600;
-    margin: 0 0 0.2rem 0;
+    margin: 0;
     padding: 0;
 }
 .tab-band p {
@@ -212,46 +203,68 @@ h1, h2, h3 {
     font-size: 0.85rem;
     margin: 0;
 }
-/* Same fix as for the card titles: switch off Streamlit's pull-up under the
+/* A logo in front of the page title (the Champions League page has one) */
+.tab-band img {
+    height: 34px;
+    width: auto;
+    align-self: center;
+    margin-right: -0.2rem;
+}
+/* Same fix as for the section titles: switch off Streamlit's pull-up under the
    title, or the line of text that follows would slide underneath it. */
 [data-testid="stMarkdownContainer"]:has(.tab-band),
 [data-testid="stMarkdown"]:has(.tab-band) {
     margin-bottom: 0 !important;
 }
 
-/* Tighter spacing between the parts of the page */
+/* Tight spacing between the parts of the page */
 [data-testid="stVerticalBlock"] {
-    gap: 0.6rem;
+    gap: 0.5rem;
 }
 
-/* The number tiles: a thin box, a small label in capitals, a calm number */
+/* The number strip: no box, a small label in capitals, a big plain number.
+   A thin vertical line separates one number from the next. */
 [data-testid="stMetric"] {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 0.6rem 0.9rem;
-    min-height: 6.4rem;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0.2rem 0;
+    min-height: 0;
     box-shadow: none;
+}
+[data-testid="stColumn"]:has([data-testid="stMetric"]):not(:first-child) {
+    border-left: 1px solid var(--line2);
+    padding-left: 1rem;
 }
 [data-testid="stMetricLabel"],
 [data-testid="stMetricLabel"] p {
     color: var(--muted);
-    font-size: 0.7rem;
-    font-weight: 600;
+    font-size: 0.66rem;
+    font-weight: 500;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 [data-testid="stMetricValue"] {
     font-weight: 600;
-    font-size: 1.55rem;
+    font-size: 1.6rem;
     color: var(--text);
     font-variant-numeric: tabular-nums;
 }
+/* A number is never cut off with "...": it may overflow its box instead */
+[data-testid="stMetricValue"],
+[data-testid="stMetricValue"] * {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: nowrap !important;
+}
 /* The change under each value (the green and red arrows). Streamlit already
-   colours it green or red. */
+   colours it green or red. Newer versions draw it as a filled pill; this draws
+   plain coloured text instead, like the design. */
 [data-testid="stMetricDelta"] {
-    font-weight: 600;
-    font-size: 0.78rem;
+    background: transparent !important;
+    padding: 0 !important;
+    font-weight: 500;
+    font-size: 0.75rem;
 }
 
 /* Long labels and notes wrap onto a second line instead of being cut off with
@@ -269,52 +282,32 @@ h1, h2, h3 {
 [data-testid="stHeading"] h2 {
     color: var(--text);
     font-weight: 600;
-    font-size: 1.5rem;
-}
-[data-testid="stHeading"] h2::after {
-    content: "";
-    display: block;
-    width: 40px;
-    height: 2px;
-    margin-top: 0.4rem;
-    background: var(--gold);
+    font-size: 1.3rem;
 }
 [data-testid="stHeading"] h3 {
     color: var(--text);
     font-weight: 600;
     font-size: 1.05rem;
-    padding: 0.8rem 0 0.4rem 0;
+    padding: 0.5rem 0 0.2rem 0;
 }
 
-/* Cards in the same row stretch to the height of the tallest one, so their
-   bottom edges line up. */
-[data-testid="stColumn"]:has([class*="st-key-card_"]) {
-    display: flex;
-    flex-direction: column;
-}
-[data-testid="stColumn"]:has([class*="st-key-card_"]) > [data-testid="stVerticalBlock"] {
-    flex: 1 1 auto;
-}
-[data-testid="stColumn"] [data-testid="stLayoutWrapper"]:has(> [class*="st-key-card_"]),
-[data-testid="stColumn"] [data-testid="stLayoutWrapper"][class*="st-key-card_"] {
-    flex: 1 1 auto;
-}
-[data-testid="stColumn"] [class*="st-key-card_"] {
-    height: 100%;
+/* A little air between one section and the next */
+[class*="st-key-card_"] {
+    margin-bottom: 0.4rem;
 }
 
 /* The footer at the bottom of the page */
 .footer {
     text-align: center;
-    color: var(--muted);
-    font-size: 0.8rem;
+    color: var(--dim);
+    font-size: 0.75rem;
     border-top: 1px solid var(--line);
     margin-top: 0.8rem;
-    padding-top: 0.8rem;
+    padding-top: 0.6rem;
 }
 .footer b {
-    color: var(--gold-soft);
-    font-weight: 600;
+    color: var(--muted);
+    font-weight: 500;
 }
 
 /* The trend check: a small table with a coloured pill for each verdict */
@@ -326,8 +319,8 @@ h1, h2, h3 {
 .trend-table th {
     text-align: left;
     color: var(--muted);
-    font-size: 0.7rem;
-    font-weight: 600;
+    font-size: 0.66rem;
+    font-weight: 500;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     padding: 0.35rem 0.4rem;
@@ -335,9 +328,9 @@ h1, h2, h3 {
     background: transparent;
 }
 .trend-table td {
-    padding: 0.5rem 0.4rem;
+    padding: 0.4rem 0.4rem;
     color: var(--text);
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--line2);
     background: transparent;
 }
 .trend-table .num {
@@ -346,15 +339,15 @@ h1, h2, h3 {
 }
 .pill {
     display: inline-block;
-    border-radius: 4px;
-    padding: 0.1rem 0.55rem;
+    border-radius: 3px;
+    padding: 0.1rem 0.5rem;
     font-weight: 600;
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     white-space: nowrap;
 }
-.pill.good { background: #173A2B; color: #6FE0A8; }
-.pill.bad { background: #412522; color: #FF8F85; }
-.pill.flat { background: #2B303A; color: #B4BBC8; }
+.pill.good { background: #12301F; color: #5FD39A; }
+.pill.bad { background: #3A1E1C; color: #FF8F85; }
+.pill.flat { background: #1E2127; color: #A5ABB6; }
 
 /* The sidebar: a shade darker than the page */
 [data-testid="stSidebar"] {
@@ -362,47 +355,44 @@ h1, h2, h3 {
     border-right: 1px solid var(--line);
 }
 
-/* The name and crest at the top of the sidebar */
+/* The crest, the name and a small blue line at the top of the sidebar */
 .brand {
     display: flex;
     align-items: center;
-    gap: 0.8rem;
-    padding: 0.2rem 0 1rem 0;
-    border-bottom: 1px solid var(--line);
+    gap: 0.7rem;
+    padding: 0.2rem 0 0.9rem 0;
 }
 .brand img {
-    height: 42px;
+    height: 40px;
     width: auto;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 8px;
-    padding: 4px 6px;
 }
 .brand b {
     display: block;
-    font-family: 'Playfair Display', Georgia, serif;
-    font-size: 1.2rem;
-    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
     color: var(--text);
     line-height: 1.15;
 }
 .brand span {
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--gold-soft);
+    color: var(--accent);
 }
 /* Small grey headings that name a part of the sidebar */
 .side-label {
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--muted);
-    margin: 0.9rem 0 0.1rem 0.2rem;
+    color: var(--dim);
+    margin: 1.1rem 0 0.6rem 0.2rem;
 }
 
 /* The page menu: one button per page, stacked in a box that app.py names "nav".
-   The page you are on is a "primary" button, which gets a dark fill and a gold
-   edge. The others are plain text rows that light up when you point at them. */
+   The page you are on is a "primary" button, which gets a dark fill and a thin
+   blue bar on the left. The others are plain text rows that light up when you
+   point at them. */
 .st-key-nav {
     gap: 0.05rem;
 }
@@ -415,9 +405,9 @@ h1, h2, h3 {
     background: transparent;
     border: none;
     border-left: 2px solid transparent;
-    border-radius: 4px;
+    border-radius: 3px;
     padding: 0.2rem 0.8rem;
-    min-height: 2.1rem;
+    min-height: 2rem;
     box-shadow: none;
 }
 .st-key-nav .stButton > button > div {
@@ -427,11 +417,11 @@ h1, h2, h3 {
 .st-key-nav .stButton > button p {
     color: var(--muted);
     font-size: 0.9rem;
-    font-weight: 500;
+    font-weight: 400;
     text-align: left;
 }
 .st-key-nav .stButton > button:hover {
-    background: var(--surface);
+    background: var(--hover);
     border-left-color: transparent;
 }
 .st-key-nav .stButton > button:hover p {
@@ -439,18 +429,18 @@ h1, h2, h3 {
 }
 .st-key-nav .stButton > button[kind="primary"],
 .st-key-nav .stButton > button[data-testid="stBaseButton-primary"] {
-    background: var(--surface);
-    border-left-color: var(--gold);
+    background: var(--hover);
+    border-left-color: var(--accent);
 }
 .st-key-nav .stButton > button[kind="primary"] p,
 .st-key-nav .stButton > button[data-testid="stBaseButton-primary"] p {
     color: var(--text);
-    font-weight: 600;
+    font-weight: 500;
 }
 
 /* Less empty space above the crest at the top of the sidebar */
 [data-testid="stSidebarHeader"] {
-    height: 2.2rem;
+    height: 2rem;
     padding-top: 0;
     padding-bottom: 0;
 }
@@ -458,31 +448,31 @@ h1, h2, h3 {
     padding-top: 0.5rem;
 }
 
-/* The club panel in the sidebar: where the team stands, always in view */
+/* The club panel in the sidebar: where the team stands, always in view. No box:
+   a big place, then thin rows. */
 .club {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 0.8rem 1rem;
+    border-top: 1px solid var(--line);
+    padding: 0.9rem 0 0 0;
 }
 .club .place {
-    font-family: 'Playfair Display', Georgia, serif;
-    font-size: 2rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 2.4rem;
     font-weight: 600;
-    color: var(--gold);
+    color: var(--text);
     line-height: 1;
 }
 .club .sub {
     color: var(--muted);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     margin: 0.3rem 0 0.6rem 0;
 }
 .club .row {
     display: flex;
     justify-content: space-between;
-    padding: 0.28rem 0;
-    border-top: 1px solid var(--line);
-    font-size: 0.82rem;
+    align-items: center;
+    padding: 0.3rem 0;
+    border-top: 1px solid var(--line2);
+    font-size: 0.8rem;
     color: var(--muted);
 }
 .club .row b {
@@ -491,58 +481,94 @@ h1, h2, h3 {
 }
 .club .dot {
     margin-left: 0;
-    margin-right: 0.3rem;
+    margin-right: 0.25rem;
 }
 
-/* Buttons: a thin outline that turns gold when you point at it */
+/* Buttons: a thin outline that turns blue when you point at it */
 .stButton > button {
-    border: 1px solid #3A404B;
-    border-radius: 6px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
     color: var(--text);
     background: transparent;
-    font-weight: 500;
+    font-weight: 400;
 }
 .stButton > button:hover {
-    background: transparent;
-    border-color: var(--gold);
-    color: var(--gold-soft);
+    background: var(--hover);
+    border-color: var(--accent);
+    color: var(--accent-soft);
 }
 
 /* The player picker (the box app.py names "players"): the player whose report is
-   open is the "primary" button, drawn with a gold edge and a soft gold fill. */
+   open is the "primary" button, drawn with a blue edge and a soft blue fill. */
 .st-key-players .stButton > button[kind="primary"],
 .st-key-players .stButton > button[data-testid="stBaseButton-primary"] {
-    border-color: var(--gold);
-    background: rgba(212, 175, 55, 0.14);
-    color: var(--gold-soft);
-    font-weight: 700;
+    border-color: var(--accent);
+    background: rgba(76, 141, 255, 0.14);
+    color: var(--accent-soft);
+    font-weight: 600;
 }
 
-/* The "see the matches" boxes, and tables that are not in a card */
+/* The player picker buttons: smaller text that is never cut off with "..." */
+.st-key-players .stButton > button {
+    padding: 0.2rem 0.3rem;
+    min-height: 2.1rem;
+}
+.st-key-players .stButton > button,
+.st-key-players .stButton > button * {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: nowrap !important;
+}
+.st-key-players .stButton > button p {
+    font-size: 0.8rem;
+}
+
+/* The "see the matches" boxes, and tables that are not in a section */
 [data-testid="stExpander"] {
-    background: var(--surface);
+    background: transparent;
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 4px;
     box-shadow: none;
 }
 [data-testid="stDataFrame"] {
-    border: 1px solid var(--line);
-    border-radius: 6px;
+    border: none;
+    border-radius: 0;
     overflow: hidden;
 }
 </style>
 """
 
 
-def logo_data_uri():
-    """The crest as a "data URI": the whole image written out as text, so it
-    can sit inside the banner's HTML. Returns None if the file is missing."""
+def _data_uri(path):
+    """A picture file as a "data URI": the whole image written out as text, so it
+    can sit inside HTML. The kind of picture comes from the file's ending (.svg,
+    .png or .webp). Returns None if the file is missing."""
+    kinds = {".svg": "image/svg+xml", ".png": "image/png", ".webp": "image/webp"}
+    kind = kinds.get(os.path.splitext(path)[1].lower())
+    if kind is None:
+        return None
     try:
-        with open(LOGO_PATH, "rb") as file:
+        with open(path, "rb") as file:
             encoded = base64.b64encode(file.read()).decode("ascii")
     except OSError:
         return None
-    return f"data:image/svg+xml;base64,{encoded}"
+    return f"data:{kind};base64,{encoded}"
+
+
+def logo_data_uri():
+    """The club crest (logo.svg next to this file), or None if it is missing."""
+    return _data_uri(LOGO_PATH)
+
+
+def champions_logo_data_uri():
+    """The Champions League logo: a file called champions_league.svg, .png or
+    .webp next to this file. Returns None if there is none."""
+    folder = os.path.dirname(os.path.abspath(__file__))
+    for extension in (".svg", ".png", ".webp"):
+        uri = _data_uri(os.path.join(folder, "champions_league" + extension))
+        if uri:
+            return uri
+    return None
 
 
 def brand_html(logo_uri, subtitle):
@@ -553,10 +579,10 @@ def brand_html(logo_uri, subtitle):
 
 
 def club_panel_html(place, played, points, record, goal_difference, form, next_match, note):
-    """The panel in the sidebar: league place in big gold letters, then rows for
+    """The panel in the sidebar: league place in big letters, then rows for
     points, record, goal difference, the last results and the next opponent.
     `form` is text such as "W W D L W"; only the letters W, D and L are turned
-    into dots. `next_match` can be None. Single line, no blank lines."""
+    into squares. `next_match` can be None. Single line, no blank lines."""
     dots = "".join(f'<span class="dot {r}">{r}</span>' for r in form.split() if r in ("W", "D", "L")) or "–"
     rows = [
         ("Points", f"<b>{points}</b> in {played} games"),
@@ -581,8 +607,8 @@ def hero_html(title, subtitle, logo_uri=None):
 def summary_html(place, played, points, record, goal_difference, form):
     """The one-line summary as a row of chips. `form` is the last results as
     text such as "W W D L W" (or a dash when nothing has been played). Only the
-    letters W, D and L are turned into dots, so nothing else can slip into the
-    HTML. Like the banner, it is a single line with no blank lines in it."""
+    letters W, D and L are turned into squares, so nothing else can slip into
+    the HTML. Like the banner, it is a single line with no blank lines in it."""
     dots = "".join(f'<span class="dot {r}">{r}</span>' for r in form.split() if r in ("W", "D", "L"))
     chips = [
         f"<b>{place}</b> in La Liga",
@@ -595,10 +621,12 @@ def summary_html(place, played, points, record, goal_difference, form):
     return '<div class="chips">' + "".join(f'<span class="chip">{c}</span>' for c in chips) + "</div>"
 
 
-def tab_band_html(title, subtitle):
-    """The banner at the top of a tab: the title and one line under it. Like
-    the page banner, it is a single line with no blank lines in it."""
-    return f'<div class="tab-band"><h2>{title}</h2><p>{subtitle}</p></div>'
+def tab_band_html(title, subtitle, logo_uri=None):
+    """The title row at the top of a tab: the name and one grey line next to it,
+    with a small logo in front when `logo_uri` is given. Like the other blocks,
+    it is a single line with no blank lines in it."""
+    logo = f'<img src="{logo_uri}" alt="Logo">' if logo_uri else ""
+    return f'<div class="tab-band">{logo}<h2>{title}</h2><p>{subtitle}</p></div>'
 
 
 def footer_html(source, downloaded):
